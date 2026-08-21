@@ -60,10 +60,43 @@ function supabaseKey() {
 export function supabaseEnvStatus() {
   const url = Boolean(supabaseUrl());
   const key = Boolean(supabaseKey());
+  // Names only — never values — so /api/health can show what Vercel actually injected.
+  const present = [
+    "SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_SECRET_KEY",
+    "SUPABASE_PUBLISHABLE_KEY",
+    "SUPABASE_ANON_KEY",
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  ].filter((name) => {
+    const value =
+      name === "SUPABASE_URL"
+        ? process.env.SUPABASE_URL
+        : name === "NEXT_PUBLIC_SUPABASE_URL"
+          ? process.env.NEXT_PUBLIC_SUPABASE_URL
+          : name === "SUPABASE_SERVICE_ROLE_KEY"
+            ? process.env.SUPABASE_SERVICE_ROLE_KEY
+            : name === "SUPABASE_SECRET_KEY"
+              ? process.env.SUPABASE_SECRET_KEY
+              : name === "SUPABASE_PUBLISHABLE_KEY"
+                ? process.env.SUPABASE_PUBLISHABLE_KEY
+                : name === "SUPABASE_ANON_KEY"
+                  ? process.env.SUPABASE_ANON_KEY
+                  : name === "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+                    ? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+                    : name === "NEXT_PUBLIC_SUPABASE_ANON_KEY"
+                      ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+                      : undefined;
+    return Boolean(value?.trim());
+  });
   return {
     hasUrl: url,
     hasKey: key,
     configured: url && key,
+    present,
+    onVercel: Boolean(process.env.VERCEL),
   };
 }
 

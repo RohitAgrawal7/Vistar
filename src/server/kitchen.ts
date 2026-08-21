@@ -196,8 +196,10 @@ export const kitchen = {
         configured: false,
         hasUrl: env.hasUrl,
         hasKey: env.hasKey,
+        present: env.present,
+        onVercel: env.onVercel,
         tables: ["1", "2", "3", "4", "5"],
-        hint: "Set SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_PUBLISHABLE_KEY) on Vercel, use Framework Preset Next.js (not Services), then Redeploy.",
+        hint: "Vercel is not injecting Supabase env into this deployment. Delete SUPABASE_* vars, re-add them with real values (Sensitive off for SUPABASE_URL), also add NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, then Redeploy without Build Cache.",
       };
     }
     const { error } = await getSupabase().from("dining_sessions").select("id").limit(1);
@@ -208,6 +210,8 @@ export const kitchen = {
       configured: true,
       hasUrl: true,
       hasKey: true,
+      present: env.present,
+      onVercel: env.onVercel,
       tables: ["1", "2", "3", "4", "5"],
       error: error?.message,
     };
