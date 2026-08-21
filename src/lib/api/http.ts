@@ -26,7 +26,8 @@ function staffHeaders(): HeadersInit {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const url = `${appConfig.apiUrl}${path}`;
+  const base = appConfig.apiUrl.trim().replace(/\/$/, "");
+  const url = `${base}${path.startsWith("/") ? path : `/${path}`}`;
   let response: Response;
   try {
     response = await fetch(url, {
@@ -38,7 +39,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     });
   } catch {
     throw new ApiError(
-      "Kitchen is offline. Restart the app (npm run dev) and check Supabase env vars.",
+      base.startsWith("http")
+        ? `Kitchen is offline (could not reach ${base}). Set NEXT_PUBLIC_API_URL=/api on Vercel and redeploy.`
+        : "Kitchen is offline. Open /api/health — it should show configured:true. Then retry.",
       503,
     );
   }

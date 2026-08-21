@@ -25,6 +25,7 @@ export function BrandLogo({
       height={size}
       sizes={`${size}px`}
       priority={priority}
+      unoptimized
       className={cn("rounded-full object-cover", className)}
     />
   );

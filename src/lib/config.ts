@@ -3,7 +3,10 @@ function resolveApiUrl() {
   if (raw === undefined) return "/api";
   const trimmed = raw.trim();
   if (trimmed === "mock") return "";
-  return trimmed || "/api";
+  if (!trimmed) return "/api";
+  // Deployed site must never call a local kitchen process.
+  if (/localhost|127\.0\.0\.1/i.test(trimmed)) return "/api";
+  return trimmed;
 }
 
 export const appConfig = {
@@ -15,8 +18,8 @@ export const appConfig = {
   welcomeBody:
     process.env.NEXT_PUBLIC_WELCOME_BODY ??
     "Sandwiches, fries, iced coffees, and shakes — order from your table. The counter sees it live.",
-  logoSrc: process.env.NEXT_PUBLIC_LOGO_SRC ?? "/logo.jpg",
-  logoLightSrc: process.env.NEXT_PUBLIC_LOGO_LIGHT_SRC ?? "/logo.jpg",
+  logoSrc: process.env.NEXT_PUBLIC_LOGO_SRC?.trim() || "/logo.jpg",
+  logoLightSrc: process.env.NEXT_PUBLIC_LOGO_LIGHT_SRC?.trim() || "/logo.jpg",
   heroSrc: process.env.NEXT_PUBLIC_HERO_SRC ?? "",
   splashMs: Number(process.env.NEXT_PUBLIC_SPLASH_MS ?? "2200"),
   apiUrl: resolveApiUrl(),
