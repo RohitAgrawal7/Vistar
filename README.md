@@ -17,7 +17,7 @@ This is a **single Next.js app**: café UI + kitchen API (`/api/*`) in one deplo
 
 1. Create a Supabase project and run [`supabase/schema.sql`](supabase/schema.sql) in the SQL editor.
 2. Push this repo to GitHub, then in [Vercel](https://vercel.com): **Add New Project** → import the repo.
-3. Vercel may show a **Services** preset because of the optional `/backend` folder. That is fine — root [`vercel.json`](vercel.json) deploys **only** the root Next.js app (kitchen is `/api` in that same app). Do not deploy `/backend` as a second service.
+3. Set **Framework Preset** to **Next.js** (not **Services**). Root [`vercel.json`](vercel.json) is a single-app deploy; kitchen is `/api` in the same app. Ignore the optional `/backend` folder — do not deploy it as a second service.
 4. Add Environment Variables (Production + Preview):
 
 | Name | Value |

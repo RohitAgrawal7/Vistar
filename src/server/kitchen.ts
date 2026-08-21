@@ -23,7 +23,7 @@ import type {
   StoredSession,
 } from "@/lib/types";
 import { serverConfig } from "@/server/config";
-import { withFloor, withFloorRead, isSupabaseConfigured, type FloorState } from "@/server/floor-store";
+import { withFloor, withFloorRead, type FloorState } from "@/server/floor-store";
 import { ApiError, computeTotals, createId, isValidIdempotencyKey } from "@/server/http";
 import {
   activeSessionForTable,
@@ -41,7 +41,7 @@ import {
   sanitizeAbandonNote,
   sanitizeGuestName,
 } from "@/server/rules";
-import { getSupabase } from "@/server/supabase";
+import { getSupabase, supabaseEnvStatus } from "@/server/supabase";
 
 const PAYMENT_METHODS: PaymentMethod[] = ["card", "wallet", "cash"];
 
@@ -187,13 +187,17 @@ export const kitchen = {
   },
 
   async health() {
-    if (!isSupabaseConfigured()) {
+    const env = supabaseEnvStatus();
+    if (!env.configured) {
       return {
         ok: false,
         service: "vistar-kitchen",
         database: "supabase",
         configured: false,
+        hasUrl: env.hasUrl,
+        hasKey: env.hasKey,
         tables: ["1", "2", "3", "4", "5"],
+        hint: "Set SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_PUBLISHABLE_KEY) on Vercel, use Framework Preset Next.js (not Services), then Redeploy.",
       };
     }
     const { error } = await getSupabase().from("dining_sessions").select("id").limit(1);
@@ -202,6 +206,8 @@ export const kitchen = {
       service: "vistar-kitchen",
       database: "supabase",
       configured: true,
+      hasUrl: true,
+      hasKey: true,
       tables: ["1", "2", "3", "4", "5"],
       error: error?.message,
     };

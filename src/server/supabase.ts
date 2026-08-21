@@ -3,36 +3,88 @@ import { ApiError } from "@/server/http";
 
 let client: SupabaseClient | null = null;
 
+/** Static process.env reads so Next/Vercel keep these bindings in the server bundle. */
+function readEnv(...names: string[]) {
+  for (const name of names) {
+    // Keep each access as a literal key for the bundler.
+    let value = "";
+    switch (name) {
+      case "SUPABASE_URL":
+        value = process.env.SUPABASE_URL ?? "";
+        break;
+      case "NEXT_PUBLIC_SUPABASE_URL":
+        value = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+        break;
+      case "SUPABASE_SERVICE_ROLE_KEY":
+        value = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+        break;
+      case "SUPABASE_SECRET_KEY":
+        value = process.env.SUPABASE_SECRET_KEY ?? "";
+        break;
+      case "SUPABASE_PUBLISHABLE_KEY":
+        value = process.env.SUPABASE_PUBLISHABLE_KEY ?? "";
+        break;
+      case "SUPABASE_ANON_KEY":
+        value = process.env.SUPABASE_ANON_KEY ?? "";
+        break;
+      case "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY":
+        value = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
+        break;
+      case "NEXT_PUBLIC_SUPABASE_ANON_KEY":
+        value = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+        break;
+      default:
+        break;
+    }
+    const trimmed = value.trim();
+    if (trimmed) return trimmed;
+  }
+  return "";
+}
+
 function supabaseUrl() {
-  return (
-    process.env.SUPABASE_URL?.trim() ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
-    ""
-  );
+  return readEnv("SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL");
 }
 
 function supabaseKey() {
-  return (
-    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
-    process.env.SUPABASE_SECRET_KEY?.trim() ||
-    process.env.SUPABASE_PUBLISHABLE_KEY?.trim() ||
-    process.env.SUPABASE_ANON_KEY?.trim() ||
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
-    ""
+  return readEnv(
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_SECRET_KEY",
+    "SUPABASE_PUBLISHABLE_KEY",
+    "SUPABASE_ANON_KEY",
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
   );
 }
 
+export function supabaseEnvStatus() {
+  const url = Boolean(supabaseUrl());
+  const key = Boolean(supabaseKey());
+  return {
+    hasUrl: url,
+    hasKey: key,
+    configured: url && key,
+  };
+}
+
 export function isSupabaseConfigured() {
-  return Boolean(supabaseUrl() && supabaseKey());
+  return supabaseEnvStatus().configured;
 }
 
 export function getSupabase() {
   const url = supabaseUrl();
   const key = supabaseKey();
   if (!url || !key) {
+    const missing = [
+      !url ? "SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL)" : null,
+      !key
+        ? "SUPABASE_SERVICE_ROLE_KEY or SUPABASE_PUBLISHABLE_KEY (or NEXT_PUBLIC_SUPABASE_ANON_KEY)"
+        : null,
+    ]
+      .filter(Boolean)
+      .join(" and ");
     throw new ApiError(
-      "Supabase is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_PUBLISHABLE_KEY) in Vercel env / .env.local",
+      `Supabase is not configured. Missing ${missing}. Set them in Vercel → Settings → Environment Variables, then Redeploy (Framework Preset: Next.js, not Services).`,
       503,
     );
   }
