@@ -4,28 +4,40 @@ import type { MenuCategory, OrderLine } from "@/lib/types";
 
 export function formatCurrency(amount: number) {
   const wholeRupees = appConfig.currency === "INR";
-  return new Intl.NumberFormat(appConfig.locale, {
-    style: "currency",
-    currency: appConfig.currency,
-    minimumFractionDigits: wholeRupees ? 0 : 2,
-    maximumFractionDigits: wholeRupees ? 0 : 2,
-  }).format(amount);
+  try {
+    return new Intl.NumberFormat(appConfig.locale, {
+      style: "currency",
+      currency: appConfig.currency,
+      minimumFractionDigits: wholeRupees ? 0 : 2,
+      maximumFractionDigits: wholeRupees ? 0 : 2,
+    }).format(amount);
+  } catch {
+    return `₹${Math.round(amount)}`;
+  }
 }
 
 export function formatTime(iso: string) {
-  return new Intl.DateTimeFormat(appConfig.locale, {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(iso));
+  try {
+    return new Intl.DateTimeFormat(appConfig.locale, {
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date(iso));
+  } catch {
+    return new Date(iso).toLocaleTimeString();
+  }
 }
 
 export function formatDateTime(iso: string) {
-  return new Intl.DateTimeFormat(appConfig.locale, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(iso));
+  try {
+    return new Intl.DateTimeFormat(appConfig.locale, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date(iso));
+  } catch {
+    return new Date(iso).toLocaleString();
+  }
 }
 
 const categoryNoun: Record<MenuCategory, { one: string; many: string }> = {

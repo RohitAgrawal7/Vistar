@@ -67,25 +67,29 @@ export function useTableSession(tableId: string) {
     if (!active || !claim || !guestOwnsSession(active, claim)) return;
     if (active.token === claim.token) return;
     useOrderStore.getState().upsertSession({ ...active, token: claim.token });
-  }, [active, claim]);
+  }, [active?.id, active?.token, claim?.sessionId, claim?.token]);
 
   useEffect(() => {
     if (claimedSession?.status !== "closed") return;
-    if (claimedSession.closeReason === "paid" && !claimedSession.reviewedAt) {
+    const closedId = claimedSession.id;
+    const closedGuest = claimedSession.guestName;
+    const closeReason = claimedSession.closeReason;
+    const reviewedAt = claimedSession.reviewedAt;
+    if (closeReason === "paid" && !reviewedAt) {
       savePaidVisit({
         tableId,
-        sessionId: claimedSession.id,
-        guestName: claimedSession.guestName,
-        total: computeSessionTotals(ordersForSession(allOrders, claimedSession.id)).total,
+        sessionId: closedId,
+        guestName: closedGuest,
+        total: computeSessionTotals(ordersForSession(allOrders, closedId)).total,
       });
     }
     const frame = window.requestAnimationFrame(() => {
       useGuestStore.getState().release(tableId);
       useCartStore.getState().clear(tableId);
-      useOutboxStore.getState().clearSession(claimedSession.id);
+      useOutboxStore.getState().clearSession(closedId);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [allOrders, claimedSession, tableId]);
+  }, [allOrders, claimedSession?.id, claimedSession?.status, claimedSession?.closeReason, claimedSession?.reviewedAt, claimedSession?.guestName, tableId]);
 
   useEffect(() => {
     let cancelled = false;
