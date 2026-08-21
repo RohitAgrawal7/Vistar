@@ -1,11 +1,33 @@
 /** Server-only kitchen settings. Prefer these over NEXT_PUBLIC_* in production. */
+
+function envString(raw: string | undefined, fallback: string) {
+  const trimmed = raw?.trim();
+  return trimmed ? trimmed : fallback;
+}
+
+function envNumber(raw: string | undefined, fallback: number) {
+  const trimmed = raw?.trim();
+  if (!trimmed) return fallback;
+  const value = Number(trimmed);
+  return Number.isFinite(value) ? value : fallback;
+}
+
 export const serverConfig = {
-  staffPin: process.env.STAFF_PIN ?? process.env.NEXT_PUBLIC_STAFF_PIN ?? "2468",
-  resumeSecret:
-    process.env.RESUME_SECRET ?? process.env.NEXT_PUBLIC_RESUME_SECRET ?? "vistar-resume-demo",
-  taxRate: Number(process.env.TAX_RATE ?? process.env.NEXT_PUBLIC_TAX_RATE ?? "0.05"),
-  sessionIdleMinutes: Number(
-    process.env.SESSION_IDLE_MINUTES ?? process.env.NEXT_PUBLIC_SESSION_IDLE_MINUTES ?? "15",
+  staffPin: envString(
+    process.env.STAFF_PIN ?? process.env.NEXT_PUBLIC_STAFF_PIN,
+    "2468",
   ),
-  corsOrigin: process.env.CORS_ORIGIN ?? "",
+  resumeSecret: envString(
+    process.env.RESUME_SECRET ?? process.env.NEXT_PUBLIC_RESUME_SECRET,
+    "vistar-resume-demo",
+  ),
+  taxRate: envNumber(
+    process.env.TAX_RATE ?? process.env.NEXT_PUBLIC_TAX_RATE,
+    0.05,
+  ),
+  sessionIdleMinutes: envNumber(
+    process.env.SESSION_IDLE_MINUTES ?? process.env.NEXT_PUBLIC_SESSION_IDLE_MINUTES,
+    15,
+  ),
+  corsOrigin: process.env.CORS_ORIGIN?.trim() ?? "",
 } as const;

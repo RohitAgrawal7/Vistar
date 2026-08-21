@@ -92,8 +92,9 @@ export function StaffLogin() {
             Sign in
           </Button>
           <p className="mt-4 text-xs leading-5 text-espresso/50">
-            Local demo PIN is <span className="font-medium text-espresso/70">2468</span> unless you set{" "}
-            <code className="rounded bg-espresso/5 px-1">NEXT_PUBLIC_STAFF_PIN</code>.
+            Default PIN is <span className="font-medium text-espresso/70">2468</span>. On Vercel it
+            must match <code className="rounded bg-espresso/5 px-1">STAFF_PIN</code> (or{" "}
+            <code className="rounded bg-espresso/5 px-1">NEXT_PUBLIC_STAFF_PIN</code>).
           </p>
         </form>
       </main>
