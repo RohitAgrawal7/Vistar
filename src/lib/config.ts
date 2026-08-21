@@ -9,6 +9,14 @@ function resolveApiUrl() {
   return trimmed;
 }
 
+function resolvePositiveMs(raw: string | undefined, fallback: number, minimum: number) {
+  const trimmed = raw?.trim();
+  if (!trimmed) return fallback;
+  const value = Number(trimmed);
+  if (!Number.isFinite(value) || value < minimum) return fallback;
+  return value;
+}
+
 export const appConfig = {
   restaurantName: process.env.NEXT_PUBLIC_RESTAURANT_NAME ?? "Vistar",
   tagline: process.env.NEXT_PUBLIC_TAGLINE ?? "Freshly Made. Boldly Flavoured. Perfectly Loaded.",
@@ -21,14 +29,15 @@ export const appConfig = {
   logoSrc: process.env.NEXT_PUBLIC_LOGO_SRC?.trim() || "/logo.jpg",
   logoLightSrc: process.env.NEXT_PUBLIC_LOGO_LIGHT_SRC?.trim() || "/logo.jpg",
   heroSrc: process.env.NEXT_PUBLIC_HERO_SRC ?? "",
-  splashMs: Number(process.env.NEXT_PUBLIC_SPLASH_MS ?? "2200"),
+  splashMs: resolvePositiveMs(process.env.NEXT_PUBLIC_SPLASH_MS, 2200, 0),
   apiUrl: resolveApiUrl(),
   currency: process.env.NEXT_PUBLIC_CURRENCY ?? "INR",
   locale: process.env.NEXT_PUBLIC_LOCALE ?? "en-IN",
   taxRate: Number(process.env.NEXT_PUBLIC_TAX_RATE ?? "0.05"),
   taxLabel: process.env.NEXT_PUBLIC_TAX_LABEL ?? "GST",
-  pollIntervalMs: Number(process.env.NEXT_PUBLIC_POLL_INTERVAL_MS ?? "3000"),
-  sessionIdleMinutes: Number(process.env.NEXT_PUBLIC_SESSION_IDLE_MINUTES ?? "15"),
+  // Empty/0 env values used to create setInterval(0) → request storms.
+  pollIntervalMs: resolvePositiveMs(process.env.NEXT_PUBLIC_POLL_INTERVAL_MS, 3000, 1500),
+  sessionIdleMinutes: resolvePositiveMs(process.env.NEXT_PUBLIC_SESSION_IDLE_MINUTES, 15, 1),
   staffPin: process.env.NEXT_PUBLIC_STAFF_PIN ?? "2468",
   resumeSecret: process.env.NEXT_PUBLIC_RESUME_SECRET ?? "vistar-resume-demo",
   upiVpa: process.env.NEXT_PUBLIC_UPI_VPA ?? "vistarcafe@upi",

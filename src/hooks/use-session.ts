@@ -66,8 +66,8 @@ export function useTableSession(tableId: string) {
   useEffect(() => {
     if (!active || !claim || !guestOwnsSession(active, claim)) return;
     if (active.token === claim.token) return;
-    upsertSession({ ...active, token: claim.token });
-  }, [active, claim, upsertSession]);
+    useOrderStore.getState().upsertSession({ ...active, token: claim.token });
+  }, [active, claim]);
 
   useEffect(() => {
     if (claimedSession?.status !== "closed") return;
@@ -80,15 +80,17 @@ export function useTableSession(tableId: string) {
       });
     }
     const frame = window.requestAnimationFrame(() => {
-      release(tableId);
+      useGuestStore.getState().release(tableId);
       useCartStore.getState().clear(tableId);
       useOutboxStore.getState().clearSession(claimedSession.id);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [allOrders, claimedSession, release, tableId]);
+  }, [allOrders, claimedSession, tableId]);
 
   useEffect(() => {
     let cancelled = false;
+    const claimToken = claim?.token;
+    const claimSessionId = claim?.sessionId;
 
     const pullPublic = () => {
       void orderService
@@ -102,24 +104,24 @@ export function useTableSession(tableId: string) {
     };
 
     const pullMine = () => {
-      if (!claim) return;
+      if (!claimToken || !claimSessionId) return;
       void orderService
-        .getMySession(tableId, claim.token)
+        .getMySession(tableId, claimToken)
         .then((snapshot) => {
           if (cancelled) return;
           if (!snapshot) {
             const current = useOrderStore
               .getState()
-              .sessions.find((item) => item.id === claim.sessionId);
+              .sessions.find((item) => item.id === claimSessionId);
             if (!current || current.status === "closed" || !current.token) {
-              release(tableId);
+              useGuestStore.getState().release(tableId);
               useCartStore.getState().clear(tableId);
             }
             return;
           }
-          upsertSession({ ...snapshot.session, token: claim.token });
+          useOrderStore.getState().upsertSession({ ...snapshot.session, token: claimToken });
           for (const order of snapshot.orders) {
-            upsertOrder(order);
+            useOrderStore.getState().upsertOrder(order);
             if (order.idempotencyKey) {
               useOutboxStore.getState().removeByIdempotencyKey(order.idempotencyKey);
             }
@@ -129,11 +131,12 @@ export function useTableSession(tableId: string) {
           if (cancelled) return;
           if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
             const live = activeSessionForTable(useOrderStore.getState().sessions, tableId);
-            if (live && guestOwnsSession(live, claim)) {
-              upsertSession({ ...live, token: claim.token });
+            const currentClaim = useGuestStore.getState().claimsByTable[tableId];
+            if (live && currentClaim && guestOwnsSession(live, currentClaim)) {
+              useOrderStore.getState().upsertSession({ ...live, token: currentClaim.token });
               return;
             }
-            release(tableId);
+            useGuestStore.getState().release(tableId);
             useCartStore.getState().clear(tableId);
           }
         });
@@ -142,9 +145,11 @@ export function useTableSession(tableId: string) {
     pullPublic();
     pullMine();
 
-    if (!isRemoteApiEnabled()) return () => {
-      cancelled = true;
-    };
+    if (!isRemoteApiEnabled()) {
+      return () => {
+        cancelled = true;
+      };
+    }
 
     const id = window.setInterval(() => {
       pullPublic();
@@ -154,7 +159,7 @@ export function useTableSession(tableId: string) {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [claim, release, tableId, upsertOrder, upsertSession]);
+  }, [claim?.sessionId, claim?.token, tableId]);
 
   const startSession = useCallback(
     async (guestName: string) => {
