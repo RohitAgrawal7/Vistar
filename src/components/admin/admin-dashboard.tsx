@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SessionBoard } from "@/components/admin/session-board";
@@ -13,11 +13,15 @@ import {
   KitchenSoundToggle,
   useKitchenSoundPreference,
 } from "@/components/admin/kitchen-sound-toggle";
+import { FloorQrGrid } from "@/components/tables/floor-qr-grid";
 import { Alert } from "@/components/ui/alert";
+import { Spinner } from "@/components/ui/spinner";
 import { useAnalytics } from "@/hooks/use-analytics";
 import { useKitchenOrderAlerts } from "@/hooks/use-kitchen-order-alerts";
 import { isActiveKitchen, useOrders } from "@/hooks/use-orders";
-import type { OrderStatus } from "@/lib/types";
+import { orderService } from "@/lib/api";
+import { DEFAULT_FLOOR_TABLES } from "@/lib/floor";
+import type { FloorTable, OrderStatus } from "@/lib/types";
 
 export function AdminDashboard() {
   const {
@@ -36,11 +40,32 @@ export function AdminDashboard() {
   const analytics = useAnalytics();
   const sounds = useKitchenSoundPreference();
   const suppressUntilRef = useRef(0);
+  const [floorTables, setFloorTables] = useState<FloorTable[]>(DEFAULT_FLOOR_TABLES);
+  const [tablesLoading, setTablesLoading] = useState(true);
 
   useKitchenOrderAlerts(orders, {
     enabled: sounds.enabled,
     suppressUntilRef,
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    setTablesLoading(true);
+    orderService
+      .listTables()
+      .then((next) => {
+        if (!cancelled && next.length) setFloorTables(next);
+      })
+      .catch(() => {
+        /* keep defaults 1–7 */
+      })
+      .finally(() => {
+        if (!cancelled) setTablesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const onAdvance = useCallback(
     async (id: string, status: OrderStatus) => {
@@ -83,7 +108,7 @@ export function AdminDashboard() {
             href="/admin/tables"
             className="mt-3 inline-flex text-sm font-medium text-terracotta underline-offset-4 hover:underline"
           >
-            Print Table 1–5 QR cards
+            Print Table 1–7 QR cards
           </Link>
           <div className="mt-4 max-w-xl">
             <KitchenSoundToggle
@@ -107,6 +132,32 @@ export function AdminDashboard() {
           />
           <AnalyticsPanel analytics={analytics} />
         </div>
+
+        <section aria-labelledby="floor-qr-heading" className="space-y-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 id="floor-qr-heading" className="font-display text-3xl italic text-espresso">
+                Table QR codes
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm text-espresso/70">
+                Tables 1–7. Guests scan a card to open only that table. Print tent cards from the QR
+                studio.
+              </p>
+            </div>
+            <Link
+              href="/admin/tables"
+              className="text-sm font-medium text-terracotta underline-offset-4 hover:underline"
+            >
+              Open QR studio
+            </Link>
+          </div>
+          {tablesLoading ? (
+            <Spinner label="Loading table QR codes…" />
+          ) : (
+            <FloorQrGrid tables={floorTables} />
+          )}
+        </section>
+
         {leftoverKitchen.length > 0 ? (
           <section aria-labelledby="leftover-heading">
             <h2 id="leftover-heading" className="mb-4 font-display text-3xl italic text-espresso">

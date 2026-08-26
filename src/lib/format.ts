@@ -100,11 +100,10 @@ export function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
 }
 
-export function computeTotals(items: OrderLine[], taxRate = appConfig.taxRate) {
+/** Menu prices are final — no GST/tax added to any order total. */
+export function computeTotals(items: OrderLine[], _taxRate = 0) {
   const subtotal = roundMoney(
     items.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0),
   );
-  const tax = roundMoney(subtotal * taxRate);
-  const total = roundMoney(subtotal + tax);
-  return { subtotal, tax, total };
+  return { subtotal, tax: 0, total: subtotal };
 }

@@ -9,6 +9,7 @@ import type {
   CreateSessionInput,
   DiningSession,
   FloorSnapshot,
+  FloorTable,
   GuestSessionSnapshot,
   MenuCatalog,
   MenuCategoryInput,
@@ -34,6 +35,12 @@ function staffHeaders(): HeadersInit {
 
 function superAdminHeaders(): HeadersInit {
   const token = getSuperAdminToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+/** Kitchen staff or super admin (table QR management). */
+function floorManageHeaders(): HeadersInit {
+  const token = getStaffToken() || getSuperAdminToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -129,6 +136,26 @@ export const httpOrderService: OrderService = {
     request<void>(`/super-admin/items/${encodeURIComponent(id)}`, {
       method: "DELETE",
       headers: superAdminHeaders(),
+    }),
+  listTables: () => request<FloorTable[]>("/tables"),
+  listAdminTables: () =>
+    request<FloorTable[]>("/super-admin/tables", { headers: floorManageHeaders() }),
+  addTable: (input) =>
+    request<FloorTable>("/super-admin/tables", {
+      method: "POST",
+      headers: floorManageHeaders(),
+      body: JSON.stringify(input),
+    }),
+  updateTable: (id, input) =>
+    request<FloorTable>(`/super-admin/tables/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: floorManageHeaders(),
+      body: JSON.stringify(input),
+    }),
+  removeTable: (id) =>
+    request<void>(`/super-admin/tables/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: floorManageHeaders(),
     }),
   getTableOccupancy: (tableId) => request<TableOccupancy>(`/tables/${encodeURIComponent(tableId)}`),
   getMySession: (tableId, token) =>

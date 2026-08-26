@@ -50,6 +50,12 @@ export async function GET(request: Request, context: RouteContext) {
     if (eq(path, "super-admin", "menu")) {
       return json(await kitchen.getAdminMenu(staff), 200, request);
     }
+    if (eq(path, "super-admin", "tables")) {
+      return json(await kitchen.listAdminTables(staff), 200, request);
+    }
+    if (eq(path, "tables")) {
+      return json(await kitchen.listTables(), 200, request);
+    }
     if (path.length === 2 && path[0] === "tables") {
       return json(await kitchen.getTableOccupancy(path[1]), 200, request);
     }
@@ -118,6 +124,10 @@ export async function POST(request: Request, context: RouteContext) {
     if (eq(path, "super-admin", "items")) {
       const body = await readJson<MenuItemInput>(request);
       return json(await kitchen.addItem(staff, body), 201, request);
+    }
+    if (eq(path, "super-admin", "tables")) {
+      const body = await readJson<{ id: string; label?: string; zone?: string }>(request);
+      return json(await kitchen.addTable(staff, body), 201, request);
     }
     if (eq(path, "sessions") && path.length === 1) {
       const body = await readJson<CreateSessionInput>(request);
@@ -198,6 +208,10 @@ export async function PATCH(request: Request, context: RouteContext) {
       const body = await readJson<Partial<MenuItemInput>>(request);
       return json(await kitchen.updateItem(staff, path[2], body), 200, request);
     }
+    if (path.length === 3 && path[0] === "super-admin" && path[1] === "tables") {
+      const body = await readJson<{ label?: string; zone?: string; active?: boolean }>(request);
+      return json(await kitchen.updateTable(staff, path[2], body), 200, request);
+    }
     throw new ApiError("Not found", 404);
   } catch (err) {
     return errorResponse(err, request);
@@ -214,6 +228,10 @@ export async function DELETE(request: Request, context: RouteContext) {
     }
     if (path.length === 3 && path[0] === "super-admin" && path[1] === "items") {
       await kitchen.removeItem(staff, path[2]);
+      return empty(204, request);
+    }
+    if (path.length === 3 && path[0] === "super-admin" && path[1] === "tables") {
+      await kitchen.removeTable(staff, path[2]);
       return empty(204, request);
     }
     throw new ApiError("Not found", 404);

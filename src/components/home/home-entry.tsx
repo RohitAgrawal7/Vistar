@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, QrCode } from "lucide-react";
@@ -8,14 +8,32 @@ import { GuestEntryShell } from "@/components/brand/guest-entry-shell";
 import { FloorQrGrid } from "@/components/tables/floor-qr-grid";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { orderService } from "@/lib/api";
 import { appConfig } from "@/lib/config";
-import { FLOOR_META, FLOOR_TABLES } from "@/lib/floor";
+import { DEFAULT_FLOOR_TABLES, floorTableMeta } from "@/lib/floor";
 import { parseTableInput } from "@/lib/tables";
+import type { FloorTable } from "@/lib/types";
 
 export function HomeEntry() {
   const router = useRouter();
   const [tableInput, setTableInput] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [tables, setTables] = useState<FloorTable[]>(DEFAULT_FLOOR_TABLES);
+
+  useEffect(() => {
+    let cancelled = false;
+    orderService
+      .listTables()
+      .then((next) => {
+        if (!cancelled && next.length) setTables(next);
+      })
+      .catch(() => {
+        /* keep defaults */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function goToTable(event: FormEvent) {
     event.preventDefault();
@@ -39,7 +57,8 @@ export function HomeEntry() {
         <p className="text-xs uppercase tracking-[0.22em] text-espresso/50">Your table</p>
         <h2 className="mt-2 font-display text-2xl italic sm:text-3xl">Scan or enter a table</h2>
         <p className="mt-2 text-sm leading-6 text-espresso/70">
-          Table 1 opens Table 1 only. After that you will see the welcome screen and enter your name.
+          Scan your table QR, or type the table number. After that you will see the welcome screen
+          and enter your name.
         </p>
 
         <form onSubmit={goToTable} className="mt-5">
@@ -68,13 +87,13 @@ export function HomeEntry() {
         </form>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          {FLOOR_TABLES.map((tableId) => (
+          {tables.map((table) => (
             <Link
-              key={tableId}
-              href={`/table/${tableId}`}
+              key={table.id}
+              href={`/table/${table.id}`}
               className="inline-flex min-h-11 items-center rounded-full border border-espresso/12 bg-white px-3 text-sm font-medium text-espresso hover:border-terracotta/40"
             >
-              {FLOOR_META[tableId].label}
+              {floorTableMeta(table.id, [table]).label}
             </Link>
           ))}
         </div>
@@ -84,18 +103,10 @@ export function HomeEntry() {
             <QrCode className="size-3.5" aria-hidden />
             Floor QR
           </p>
-          <FloorQrGrid interactive />
+          <FloorQrGrid interactive tables={tables} />
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-4 text-sm font-medium">
-          <Link
-            href="/admin/tables"
-            className="inline-flex min-h-11 items-center gap-2 text-terracotta underline-offset-4 hover:underline"
-          >
-            <QrCode className="size-4" aria-hidden />
-            Print table QR cards
-          </Link>
-        </div>
+        
       </div>
     </GuestEntryShell>
   );

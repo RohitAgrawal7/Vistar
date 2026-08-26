@@ -1,5 +1,5 @@
-import { SuperAdminMenuEditor } from "@/components/super-admin/super-admin-menu-editor";
+import { SuperAdminDashboard } from "@/components/super-admin/super-admin-dashboard";
 
 export default function SuperAdminPage() {
-  return <SuperAdminMenuEditor />;
+  return <SuperAdminDashboard />;
 }

@@ -285,3 +285,17 @@ export interface ReviewInput {
   rating?: number;
   reviewNote?: string;
 }
+
+export interface FloorTable {
+  id: string;
+  label: string;
+  zone: string;
+  sortOrder: number;
+  active: boolean;
+}
+
+export interface FloorTableInput {
+  id: string;
+  label?: string;
+  zone?: string;
+}

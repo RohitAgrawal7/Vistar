@@ -18,8 +18,8 @@ export default function NotFound() {
         <p className="text-center text-xs uppercase tracking-[0.28em] text-gold-light/85">404</p>
         <h1 className="mt-2 text-balance text-center font-display text-3xl italic text-cream sm:text-4xl">Table not found</h1>
         <p className="mx-auto mt-3 max-w-sm text-center text-sm leading-6 text-cream/75">
-          That table is not on this floor. {appConfig.restaurantName} has five tables — pick Table 1,
-          2, 3, 4, or 5.
+          That table is not on this floor. Go back and pick a table from the café entry, or scan a
+          printed QR card.
         </p>
 
         <div className="mt-6 rounded-[28px] border border-white/15 bg-cream/95 p-5 text-espresso shadow-[0_24px_60px_-28px_rgba(0,0,0,0.65)]">

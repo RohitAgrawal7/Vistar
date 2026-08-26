@@ -17,7 +17,6 @@ import { OrderLineList } from "@/components/order-line-list";
 import { useTableSession } from "@/hooks/use-session";
 import { useThanksWhenStaffConfirms } from "@/hooks/use-thanks-when-staff-confirms";
 import { formatCurrency } from "@/lib/format";
-import { appConfig } from "@/lib/config";
 import { SESSION_COPY, STATUS_COPY } from "@/lib/status";
 import { cn } from "@/lib/cn";
 import { readPaidVisit } from "@/lib/visit-complete";
@@ -89,11 +88,7 @@ export function PaymentExperience({ tableId }: { tableId: string }) {
   }
 
   const session = table.session;
-  const sendingSubtotal = table.sending.reduce((sum, item) => sum + item.subtotal, 0);
-  const sendingTax = table.sending.reduce((sum, item) => sum + item.tax, 0);
   const sendingTotal = table.sending.reduce((sum, item) => sum + item.total, 0);
-  const dueSubtotal = table.totals.subtotal + sendingSubtotal;
-  const dueTax = table.totals.tax + sendingTax;
   const dueTotal = table.totals.total + sendingTotal;
 
   return (
@@ -172,14 +167,6 @@ export function PaymentExperience({ tableId }: { tableId: string }) {
             </ul>
 
             <dl className="mt-4 space-y-2 text-sm">
-              <div className="flex justify-between text-espresso/70">
-                <dt>Subtotal</dt>
-                <dd className="tabular-nums">{formatCurrency(dueSubtotal)}</dd>
-              </div>
-              <div className="flex justify-between text-espresso/70">
-                <dt>{appConfig.taxLabel}</dt>
-                <dd className="tabular-nums">{formatCurrency(dueTax)}</dd>
-              </div>
               <div className="flex justify-between text-lg font-semibold">
                 <dt>Amount due</dt>
                 <dd className="tabular-nums">{formatCurrency(dueTotal)}</dd>

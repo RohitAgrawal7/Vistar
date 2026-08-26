@@ -5,6 +5,8 @@ import type {
   CreateSessionInput,
   DiningSession,
   FloorSnapshot,
+  FloorTable,
+  FloorTableInput,
   GuestSessionSnapshot,
   MenuCatalog,
   MenuCategoryInput,
@@ -46,6 +48,14 @@ export interface OrderService {
   addItem(input: MenuItemInput): Promise<MenuItem>;
   updateItem(id: string, input: Partial<MenuItemInput>): Promise<MenuItem>;
   removeItem(id: string): Promise<void>;
+  listTables(): Promise<FloorTable[]>;
+  listAdminTables(): Promise<FloorTable[]>;
+  addTable(input: FloorTableInput): Promise<FloorTable>;
+  updateTable(
+    id: string,
+    input: Partial<Pick<FloorTable, "label" | "zone" | "active">>,
+  ): Promise<FloorTable>;
+  removeTable(id: string): Promise<void>;
   getTableOccupancy(tableId: string): Promise<TableOccupancy>;
   getMySession(tableId: string, token: string): Promise<GuestSessionSnapshot | null>;
   listSessions(): Promise<DiningSession[]>;

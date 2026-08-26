@@ -43,8 +43,9 @@ export const appConfig = {
   apiUrl: resolveApiUrl(),
   currency: envString(process.env.NEXT_PUBLIC_CURRENCY, "INR"),
   locale: envString(process.env.NEXT_PUBLIC_LOCALE, "en-IN"),
-  taxRate: resolvePositiveNumber(process.env.NEXT_PUBLIC_TAX_RATE, 0.05, 0),
-  taxLabel: envString(process.env.NEXT_PUBLIC_TAX_LABEL, "GST"),
+  // GST disabled — menu prices are final (field kept for older clients / env compatibility).
+  taxRate: 0,
+  taxLabel: envString(process.env.NEXT_PUBLIC_TAX_LABEL, "Tax"),
   // Empty/0 env values used to create setInterval(0) → request storms.
   pollIntervalMs: resolvePositiveNumber(process.env.NEXT_PUBLIC_POLL_INTERVAL_MS, 3000, 1500),
   sessionIdleMinutes: resolvePositiveNumber(process.env.NEXT_PUBLIC_SESSION_IDLE_MINUTES, 15, 1),
@@ -53,7 +54,7 @@ export const appConfig = {
   upiVpa: envString(process.env.NEXT_PUBLIC_UPI_VPA, "vistarcafe@upi"),
   appUrl: process.env.NEXT_PUBLIC_APP_URL?.trim() ?? "",
   tableMin: 1,
-  tableMax: 5,
+  tableMax: 99,
 } as const;
 
 export function isRemoteApiEnabled() {

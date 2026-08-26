@@ -1,10 +1,10 @@
 import type { DiningSession, Order, OrderLine, SessionStatus } from "@/lib/types";
+import { isFloorTableId as isValidTableFormat } from "@/lib/floor";
 /** Session/order rules used by the kitchen API. */
 
-export const FLOOR_TABLES = ["1", "2", "3", "4", "5"] as const;
-
+/** Format check only (1–99). Known floor tables live in floor_tables / listFloorTables. */
 export function isFloorTableId(value: string) {
-  return (FLOOR_TABLES as readonly string[]).includes(value);
+  return isValidTableFormat(value);
 }
 
 export const ACTIVE_SESSION_STATUSES: SessionStatus[] = ["open", "billing", "paid"];

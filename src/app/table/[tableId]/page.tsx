@@ -37,5 +37,7 @@ export function generateStaticParams() {
     { tableId: "3" },
     { tableId: "4" },
     { tableId: "5" },
+    { tableId: "6" },
+    { tableId: "7" },
   ];
 }

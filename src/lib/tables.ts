@@ -1,4 +1,8 @@
-import { FLOOR_TABLES, isFloorTableId } from "@/lib/floor";
+import {
+  DEFAULT_FLOOR_TABLES,
+  isFloorTableId,
+  normalizeTableId,
+} from "@/lib/floor";
 
 export function parseTableInput(raw: string) {
   const value = raw.trim();
@@ -10,9 +14,7 @@ export function parseTableInput(raw: string) {
   )?.[1];
 
   if (!digits) return null;
-  const tableId = String(Number.parseInt(digits, 10));
-  if (!isFloorTableId(tableId)) return null;
-  return tableId;
+  return normalizeTableId(digits);
 }
 
 export function isValidTableId(tableId: string) {
@@ -26,10 +28,10 @@ export function resolveFloorTableId(raw: string) {
   } catch {
     /* keep raw if it is not encoded */
   }
-  if (isFloorTableId(value)) return value;
+  if (isFloorTableId(value)) return normalizeTableId(value);
   return parseTableInput(value);
 }
 
 export function floorTableList() {
-  return FLOOR_TABLES;
+  return DEFAULT_FLOOR_TABLES.map((table) => table.id);
 }

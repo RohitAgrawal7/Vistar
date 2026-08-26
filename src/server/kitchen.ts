@@ -42,10 +42,16 @@ import {
   updateItem,
 } from "@/server/menu-catalog";
 import {
+  addFloorTable,
+  isKnownFloorTable,
+  listFloorTables,
+  removeFloorTable,
+  updateFloorTable,
+} from "@/server/floor-tables";
+import {
   activeSessionForTable,
   canAddOrders,
   isActiveSession,
-  isFloorTableId,
   isValidAbandonNote,
   isValidGuestName,
   isValidStaffName,
@@ -294,8 +300,68 @@ export const kitchen = {
     });
   },
 
+  async listTables() {
+    return listFloorTables(true);
+  },
+
+  async listAdminTables(staffToken: string) {
+    await withFloorRead((floor) => {
+      requireStaff(floor, staffToken);
+    });
+    return listFloorTables(false);
+  },
+
+  async addTable(
+    staffToken: string,
+    input: { id: string; label?: string; zone?: string },
+  ) {
+    return withFloor(async (floor) => {
+      const staff = requireStaff(floor, staffToken);
+      const table = await addFloorTable(input);
+      recordAudit(floor, {
+        action: "menu_updated",
+        note: `Added floor table ${table.id}`,
+        staffName: staff.staffName,
+        tableId: table.id,
+      });
+      return table;
+    });
+  },
+
+  async updateTable(
+    staffToken: string,
+    id: string,
+    input: { label?: string; zone?: string; active?: boolean },
+  ) {
+    return withFloor(async (floor) => {
+      const staff = requireStaff(floor, staffToken);
+      const table = await updateFloorTable(id, input);
+      recordAudit(floor, {
+        action: "menu_updated",
+        note: `Updated floor table ${table.id}`,
+        staffName: staff.staffName,
+        tableId: table.id,
+      });
+      return table;
+    });
+  },
+
+  async removeTable(staffToken: string, id: string) {
+    return withFloor(async (floor) => {
+      const staff = requireStaff(floor, staffToken);
+      await removeFloorTable(id);
+      recordAudit(floor, {
+        action: "menu_updated",
+        note: `Removed floor table ${id}`,
+        staffName: staff.staffName,
+        tableId: id,
+      });
+    });
+  },
+
   async health() {
     const env = supabaseEnvStatus();
+    const tableIds = (await listFloorTables(true).catch(() => [])).map((table) => table.id);
     if (!env.configured) {
       return {
         ok: false,
@@ -306,7 +372,7 @@ export const kitchen = {
         hasKey: env.hasKey,
         present: env.present,
         onVercel: env.onVercel,
-        tables: ["1", "2", "3", "4", "5"],
+        tables: tableIds.length ? tableIds : ["1", "2", "3", "4", "5"],
         hint: "Vercel is not injecting Supabase env into this deployment. Delete SUPABASE_* vars, re-add them with real values (Sensitive off for SUPABASE_URL), also add NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, then Redeploy without Build Cache.",
       };
     }
@@ -321,7 +387,7 @@ export const kitchen = {
       hasKey: true,
       present: env.present,
       onVercel: env.onVercel,
-      tables: ["1", "2", "3", "4", "5"],
+      tables: tableIds.length ? tableIds : ["1", "2", "3", "4", "5"],
       error: error?.message,
     };
   },
@@ -392,7 +458,7 @@ export const kitchen = {
   },
 
   async getTableOccupancy(tableId: string) {
-    if (!isFloorTableId(tableId)) throw new ApiError("Unknown table", 404);
+    if (!(await isKnownFloorTable(tableId))) throw new ApiError("Unknown table", 404);
     return withFloorRead((floor) => ({
       tableId,
       occupied: Boolean(activeSessionForTable(floor.sessions, tableId)),
@@ -401,7 +467,7 @@ export const kitchen = {
 
   async getMySession(tableId: string, token: string) {
     if (!token) throw new ApiError("This session has ended", 401);
-    if (!isFloorTableId(tableId)) throw new ApiError("Unknown table", 404);
+    if (!(await isKnownFloorTable(tableId))) throw new ApiError("Unknown table", 404);
     return withFloorRead((floor) => {
       const owned = floor.sessions.find(
         (item) =>
@@ -465,7 +531,7 @@ export const kitchen = {
   },
 
   async startSession(input: CreateSessionInput) {
-    if (!isFloorTableId(input.tableId)) throw new ApiError("Unknown table", 404);
+    if (!(await isKnownFloorTable(input.tableId))) throw new ApiError("Unknown table", 404);
     const guestName = sanitizeGuestName(input.guestName ?? "");
     if (!isValidGuestName(guestName)) {
       throw new ApiError("Enter a name of at least two letters", 400);

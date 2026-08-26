@@ -12,7 +12,7 @@ import { cn } from "@/lib/cn";
 import type { MenuCatalog, MenuCategoryRecord, MenuItem } from "@/lib/types";
 import { useSuperAdminStore } from "@/store/super-admin-store";
 
-export function SuperAdminMenuEditor() {
+export function SuperAdminMenuEditor({ embedded = false }: { embedded?: boolean }) {
   const staffName = useSuperAdminStore((state) => state.staffName);
   const logoutStore = useSuperAdminStore((state) => state.logout);
   const [catalog, setCatalog] = useState<MenuCatalog | null>(null);
@@ -101,12 +101,16 @@ export function SuperAdminMenuEditor() {
   }
 
   return (
-    <div className="min-h-dvh bg-cream">
-      <SiteHeader />
-      <main
-        id="main"
-        className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-5 pb-safe sm:gap-8 sm:px-6 sm:py-6"
+    <div className={embedded ? undefined : "min-h-dvh bg-cream"}>
+      {embedded ? null : <SiteHeader />}
+      <div
+        className={
+          embedded
+            ? "flex w-full flex-col gap-6"
+            : "mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-5 pb-safe sm:gap-8 sm:px-6 sm:py-6"
+        }
       >
+        {embedded ? null : (
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs uppercase tracking-[0.24em] text-espresso/50">Menu control</p>
@@ -127,6 +131,7 @@ export function SuperAdminMenuEditor() {
             Sign out
           </Button>
         </div>
+        )}
 
         {error ? <Alert message={error} /> : null}
         {message ? <Alert tone="info" message={message} /> : null}
@@ -292,7 +297,7 @@ export function SuperAdminMenuEditor() {
             </section>
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }

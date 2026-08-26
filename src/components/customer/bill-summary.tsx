@@ -1,15 +1,12 @@
 "use client";
 
 import { formatCurrency, formatItemNames } from "@/lib/format";
-import { appConfig } from "@/lib/config";
 import type { OrderLine } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Plus, Send } from "lucide-react";
 
 export function BillSummary({
   lines,
-  subtotal,
-  tax,
   total,
   notes,
   onNotesChange,
@@ -20,8 +17,8 @@ export function BillSummary({
   compactActions = false,
 }: {
   lines: OrderLine[];
-  subtotal: number;
-  tax: number;
+  subtotal?: number;
+  tax?: number;
   total: number;
   notes: string;
   onNotesChange: (value: string) => void;
@@ -69,14 +66,6 @@ export function BillSummary({
       )}
 
       <dl className="space-y-2 border-t border-espresso/10 pt-4 text-sm">
-        <div className="flex justify-between text-espresso/70">
-          <dt>Subtotal</dt>
-          <dd className="tabular-nums">{formatCurrency(subtotal)}</dd>
-        </div>
-        <div className="flex justify-between text-espresso/70">
-          <dt>{appConfig.taxLabel}</dt>
-          <dd className="tabular-nums">{formatCurrency(tax)}</dd>
-        </div>
         <div className="flex justify-between text-base font-semibold text-espresso">
           <dt>Total</dt>
           <dd className="tabular-nums">{formatCurrency(total)}</dd>

@@ -2,22 +2,25 @@
 
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
-import { FLOOR_META, type FloorTableId, buildTableScanUrl, tableMenuPath } from "@/lib/floor";
+import { buildTableScanUrl, floorTableMeta, tableMenuPath } from "@/lib/floor";
 import { appConfig } from "@/lib/config";
 import { cn } from "@/lib/cn";
+import type { FloorTable } from "@/lib/types";
 
 export function TableQrCard({
   tableId,
   origin,
+  table,
   interactive = false,
   size = 168,
 }: {
-  tableId: FloorTableId;
+  tableId: string;
   origin: string;
+  table?: FloorTable;
   interactive?: boolean;
   size?: number;
 }) {
-  const meta = FLOOR_META[tableId];
+  const meta = floorTableMeta(tableId, table ? [table] : undefined);
   const scanUrl = buildTableScanUrl(tableId, origin);
   const inner = (
     <>

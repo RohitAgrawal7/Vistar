@@ -94,6 +94,26 @@ create table if not exists public.menu_items (
 
 create index if not exists menu_items_category_id_idx on public.menu_items (category_id);
 
+-- Floor tables (super admin can add numbers + print QR codes)
+create table if not exists public.floor_tables (
+  id text primary key,
+  label text not null,
+  zone text not null default 'Floor',
+  sort_order integer not null default 0,
+  active boolean not null default true
+);
+
+insert into public.floor_tables (id, label, zone, sort_order, active)
+values
+  ('1', 'Table 1', 'Window', 1, true),
+  ('2', 'Table 2', 'Indoor', 2, true),
+  ('3', 'Table 3', 'Indoor', 3, true),
+  ('4', 'Table 4', 'Garden', 4, true),
+  ('5', 'Table 5', 'Garden', 5, true),
+  ('6', 'Table 6', 'Patio', 6, true),
+  ('7', 'Table 7', 'Patio', 7, true)
+on conflict (id) do nothing;
+
 create table if not exists public.resume_grants (
   id text primary key,
   nonce text not null unique,
@@ -125,6 +145,7 @@ alter table public.resume_grants enable row level security;
 alter table public.audit_events enable row level security;
 alter table public.menu_categories enable row level security;
 alter table public.menu_items enable row level security;
+alter table public.floor_tables enable row level security;
 
 -- Publishable / anon key (kitchen server). Prefer the secret/service_role key in production.
 drop policy if exists vistar_dining_sessions_kitchen on public.dining_sessions;
@@ -134,6 +155,7 @@ drop policy if exists vistar_resume_grants_kitchen on public.resume_grants;
 drop policy if exists vistar_audit_events_kitchen on public.audit_events;
 drop policy if exists vistar_menu_categories_kitchen on public.menu_categories;
 drop policy if exists vistar_menu_items_kitchen on public.menu_items;
+drop policy if exists vistar_floor_tables_kitchen on public.floor_tables;
 
 create policy vistar_dining_sessions_kitchen on public.dining_sessions
   for all using (true) with check (true);
@@ -149,6 +171,8 @@ create policy vistar_menu_categories_kitchen on public.menu_categories
   for all using (true) with check (true);
 create policy vistar_menu_items_kitchen on public.menu_items
   for all using (true) with check (true);
+create policy vistar_floor_tables_kitchen on public.floor_tables
+  for all using (true) with check (true);
 
 grant usage on schema public to anon, authenticated;
 grant all on public.dining_sessions to anon, authenticated;
@@ -158,6 +182,7 @@ grant all on public.resume_grants to anon, authenticated;
 grant all on public.audit_events to anon, authenticated;
 grant all on public.menu_categories to anon, authenticated;
 grant all on public.menu_items to anon, authenticated;
+grant all on public.floor_tables to anon, authenticated;
 
 
 -- ---------------------------------------------------------------------------

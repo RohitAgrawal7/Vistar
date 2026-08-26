@@ -17,10 +17,8 @@ export const serverConfig = {
     process.env.RESUME_SECRET ?? process.env.NEXT_PUBLIC_RESUME_SECRET,
     "vistar-resume-demo",
   ),
-  taxRate: envNumber(
-    process.env.TAX_RATE ?? process.env.NEXT_PUBLIC_TAX_RATE,
-    0.05,
-  ),
+  // GST disabled — menu prices are final.
+  taxRate: 0,
   sessionIdleMinutes: envNumber(
     process.env.SESSION_IDLE_MINUTES ?? process.env.NEXT_PUBLIC_SESSION_IDLE_MINUTES,
     15,

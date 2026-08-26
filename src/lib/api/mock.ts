@@ -1,5 +1,6 @@
 import { computeAnalytics } from "@/lib/analytics";
 import { appConfig } from "@/lib/config";
+import { DEFAULT_FLOOR_TABLES, normalizeTableId, sortFloorTables } from "@/lib/floor";
 import { computeTotals } from "@/lib/format";
 import { createId, isValidIdempotencyKey } from "@/lib/id";
 import { withExclusiveLock } from "@/lib/lock";
@@ -46,6 +47,7 @@ import type {
   Order,
   OrderStatus,
   PaymentMethod,
+  FloorTable,
   ResumeGrant,
   SessionCloseReason,
 } from "@/lib/types";
@@ -79,6 +81,8 @@ let mockCatalog: MenuCatalog = {
   categories: seedCategories(),
   items: seedMenuItems(),
 };
+
+let mockFloorTables: FloorTable[] = structuredClone(DEFAULT_FLOOR_TABLES);
 
 function publicCatalog(): MenuCatalog {
   return {
@@ -388,8 +392,82 @@ export const mockOrderService: OrderService = {
     recordAudit({ action: "menu_updated", note: `Removed item ${id}` });
   },
 
+  async listTables() {
+    await delay(60);
+    return sortFloorTables(mockFloorTables.filter((table) => table.active));
+  },
+
+  async listAdminTables() {
+    await delay(80);
+    if (!getStaffToken() && !getSuperAdminToken()) {
+      throw new ApiError("Staff sign-in required", 401);
+    }
+    return sortFloorTables(mockFloorTables);
+  },
+
+  async addTable(input) {
+    await delay(120);
+    if (!getStaffToken() && !getSuperAdminToken()) {
+      throw new ApiError("Staff sign-in required", 401);
+    }
+    const id = normalizeTableId(input.id);
+    if (!id) throw new ApiError("Enter a table number from 1 to 99", 400);
+    if (mockFloorTables.some((table) => table.id === id)) {
+      throw new ApiError(`Table ${id} already exists`, 409);
+    }
+    const next: FloorTable = {
+      id,
+      label: (input.label ?? `Table ${id}`).trim() || `Table ${id}`,
+      zone: (input.zone ?? "Floor").trim() || "Floor",
+      sortOrder: Number(id),
+      active: true,
+    };
+    mockFloorTables = sortFloorTables([...mockFloorTables, next]);
+    recordAudit({ action: "menu_updated", note: `Added floor table ${id}`, tableId: id });
+    return next;
+  },
+
+  async updateTable(id, input) {
+    await delay(100);
+    if (!getStaffToken() && !getSuperAdminToken()) {
+      throw new ApiError("Staff sign-in required", 401);
+    }
+    const index = mockFloorTables.findIndex((table) => table.id === id);
+    if (index < 0) throw new ApiError("Unknown table", 404);
+    const current = mockFloorTables[index];
+    const next: FloorTable = {
+      ...current,
+      label: input.label !== undefined ? input.label.trim() || current.label : current.label,
+      zone: input.zone !== undefined ? input.zone.trim() || current.zone : current.zone,
+      active: input.active ?? current.active,
+    };
+    mockFloorTables[index] = next;
+    mockFloorTables = sortFloorTables(mockFloorTables);
+    recordAudit({ action: "menu_updated", note: `Updated floor table ${id}`, tableId: id });
+    return next;
+  },
+
+  async removeTable(id) {
+    await delay(100);
+    if (!getStaffToken() && !getSuperAdminToken()) {
+      throw new ApiError("Staff sign-in required", 401);
+    }
+    if (!mockFloorTables.some((table) => table.id === id)) {
+      throw new ApiError("Unknown table", 404);
+    }
+    const active = mockFloorTables.filter((table) => table.active);
+    if (active.length <= 1 && active[0]?.id === id) {
+      throw new ApiError("Keep at least one active table on the floor", 400);
+    }
+    mockFloorTables = mockFloorTables.filter((table) => table.id !== id);
+    recordAudit({ action: "menu_updated", note: `Removed floor table ${id}`, tableId: id });
+  },
+
   async getTableOccupancy(tableId) {
     await delay(80);
+    if (!mockFloorTables.some((table) => table.id === tableId && table.active)) {
+      throw new ApiError("Unknown table", 404);
+    }
     pullFloorFromStorage();
     const active = activeSessionForTable(getFloor().sessions, tableId);
     return { tableId, occupied: Boolean(active) };
@@ -461,6 +539,9 @@ export const mockOrderService: OrderService = {
 
   async startSession(input: CreateSessionInput) {
     await delay(320);
+    if (!mockFloorTables.some((table) => table.id === input.tableId && table.active)) {
+      throw new ApiError("Unknown table", 404);
+    }
     const guestName = sanitizeGuestName(input.guestName);
     if (!isValidGuestName(guestName)) {
       throw new ApiError("Enter a name of at least two letters", 400);
