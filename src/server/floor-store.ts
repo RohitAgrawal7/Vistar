@@ -27,6 +27,16 @@ const emptyFloor = (): FloorState => ({
 
 let queue: Promise<unknown> = Promise.resolve();
 
+/** Short read cache so back-to-back staff GETs share one Supabase load. */
+let readCache: FloorState | null = null;
+let readCacheAt = 0;
+const READ_CACHE_MS = 800;
+
+function invalidateReadCache() {
+  readCache = null;
+  readCacheAt = 0;
+}
+
 function iso(value: string | null | undefined) {
   if (!value) return undefined;
   return new Date(value).toISOString();
@@ -155,7 +165,14 @@ function missing(prev: string[], next: string[]) {
   return prev.filter((id) => !keep.has(id));
 }
 
-async function load(): Promise<FloorState> {
+async function load(options?: { bypassCache?: boolean }): Promise<FloorState> {
+  if (
+    !options?.bypassCache &&
+    readCache &&
+    Date.now() - readCacheAt < READ_CACHE_MS
+  ) {
+    return structuredClone(readCache) as FloorState;
+  }
   if (!isSupabaseConfigured()) {
     throw new ApiError(
       "Supabase is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_PUBLISHABLE_KEY) in Vercel env / .env.local",
@@ -168,21 +185,26 @@ async function load(): Promise<FloorState> {
     db.from("orders").select("*").order("created_at", { ascending: false }),
     db.from("staff_sessions").select("*").order("created_at", { ascending: false }),
     db.from("resume_grants").select("*").order("created_at", { ascending: false }),
-    db.from("audit_events").select("*").order("at", { ascending: false }).limit(200),
+    db.from("audit_events").select("*").order("at", { ascending: false }).limit(2000),
   ]);
   throwIfError(sessions.error, "Could not load sessions");
   throwIfError(orders.error, "Could not load orders");
   throwIfError(staff.error, "Could not load staff");
   throwIfError(grants.error, "Could not load resume codes");
   throwIfError(audit.error, "Could not load audit log");
-  return {
+  const floor: FloorState = {
     sessions: (sessions.data ?? []).map((row) => sessionFromRow(row as Record<string, unknown>)),
     orders: (orders.data ?? []).map((row) => orderFromRow(row as Record<string, unknown>)),
-    staff: (staff.data ?? []).map((row) => ({
-      token: String((row as { token: string }).token),
-      staffName: String((row as { staff_name: string }).staff_name),
-      createdAt: iso(String((row as { created_at: string }).created_at)) ?? new Date().toISOString(),
-    })),
+    staff: (staff.data ?? []).map((row) => {
+      const item = row as { token: string; staff_name: string; created_at: string; role?: string };
+      const role = item.role === "super_admin" ? "super_admin" : "staff";
+      return {
+        token: String(item.token),
+        staffName: String(item.staff_name),
+        createdAt: iso(String(item.created_at)) ?? new Date().toISOString(),
+        role: role as StoredStaff["role"],
+      };
+    }),
     resumeGrants: (grants.data ?? []).map((row) => {
       const item = row as Record<string, unknown>;
       return {
@@ -210,9 +232,13 @@ async function load(): Promise<FloorState> {
       };
     }),
   };
+  readCache = floor;
+  readCacheAt = Date.now();
+  return structuredClone(floor) as FloorState;
 }
 
 async function save(prev: FloorState, next: FloorState) {
+  invalidateReadCache();
   const db = getSupabase();
 
   if (next.sessions.length) {
@@ -247,6 +273,7 @@ async function save(prev: FloorState, next: FloorState) {
         token: item.token,
         staff_name: item.staffName,
         created_at: item.createdAt,
+        role: item.role ?? "staff",
       })),
     );
     throwIfError(error, "Could not save staff");
@@ -309,12 +336,85 @@ async function save(prev: FloorState, next: FloorState) {
   }
 }
 
+/**
+ * Load orders + audits for a calendar range (for admin reports).
+ * Does not go through the floor write queue / 200-event audit cap.
+ */
+export async function loadReportSlice(from: string, to: string) {
+  if (!isSupabaseConfigured()) {
+    throw new ApiError(
+      "Supabase is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_PUBLISHABLE_KEY) in Vercel env / .env.local",
+      503,
+    );
+  }
+  const fromMs = Date.parse(from);
+  const toMs = Date.parse(to);
+  if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || fromMs >= toMs) {
+    throw new ApiError("Invalid report date range", 400);
+  }
+  const db = getSupabase();
+  const [ordersRes, auditRes] = await Promise.all([
+    db
+      .from("orders")
+      .select("*")
+      .gte("created_at", from)
+      .lt("created_at", to)
+      .order("created_at", { ascending: false }),
+    db
+      .from("audit_events")
+      .select("*")
+      .gte("at", from)
+      .lt("at", to)
+      .order("at", { ascending: false })
+      .limit(5000),
+  ]);
+  throwIfError(ordersRes.error, "Could not load report orders");
+  throwIfError(auditRes.error, "Could not load report audit log");
+
+  const orders = (ordersRes.data ?? []).map((row) =>
+    orderFromRow(row as Record<string, unknown>),
+  );
+  const auditLog = (auditRes.data ?? []).map((row) => {
+    const item = row as Record<string, unknown>;
+    return {
+      id: String(item.id),
+      at: iso(String(item.at)) ?? new Date().toISOString(),
+      action: item.action as AuditEvent["action"],
+      staffName: String(item.staff_name),
+      note: String(item.note ?? ""),
+      tableId: item.table_id ? String(item.table_id) : undefined,
+      sessionId: item.session_id ? String(item.session_id) : undefined,
+      guestName: item.guest_name ? String(item.guest_name) : undefined,
+    };
+  });
+
+  const sessionIds = [
+    ...new Set([
+      ...orders.map((order) => order.sessionId),
+      ...auditLog.map((event) => event.sessionId).filter(Boolean) as string[],
+    ]),
+  ];
+  let sessions: StoredSession[] = [];
+  if (sessionIds.length) {
+    const sessionsRes = await db.from("dining_sessions").select("*").in("id", sessionIds);
+    throwIfError(sessionsRes.error, "Could not load report sessions");
+    sessions = (sessionsRes.data ?? []).map((row) =>
+      sessionFromRow(row as Record<string, unknown>),
+    );
+  }
+
+  return { from, to, orders, sessions, auditLog };
+}
+
 export function withFloor<T>(run: (floor: FloorState) => T | Promise<T>): Promise<T> {
   const next = queue.then(async () => {
-    const floor = await load();
+    const floor = await load({ bypassCache: true });
     const snapshot = structuredClone(floor) as FloorState;
     const result = await run(floor);
     await save(snapshot, floor);
+    // Keep a fresh cache of the written floor for immediate follow-up reads.
+    readCache = structuredClone(floor) as FloorState;
+    readCacheAt = Date.now();
     return result;
   });
   queue = next.then(

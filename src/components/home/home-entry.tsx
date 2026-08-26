@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, ChefHat, QrCode } from "lucide-react";
+import { ArrowRight, QrCode } from "lucide-react";
 import { GuestEntryShell } from "@/components/brand/guest-entry-shell";
 import { FloorQrGrid } from "@/components/tables/floor-qr-grid";
 import { Alert } from "@/components/ui/alert";
@@ -94,13 +94,6 @@ export function HomeEntry() {
           >
             <QrCode className="size-4" aria-hidden />
             Print table QR cards
-          </Link>
-          <Link
-            href="/admin"
-            className="inline-flex min-h-11 items-center gap-2 text-espresso/70 underline-offset-4 hover:text-espresso hover:underline"
-          >
-            <ChefHat className="size-4" aria-hidden />
-            Kitchen dashboard
           </Link>
         </div>
       </div>

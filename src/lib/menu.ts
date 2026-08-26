@@ -1,6 +1,7 @@
 import type { MenuCategory, MenuItem } from "@/lib/types";
 
-export const CATEGORY_IMAGES: Record<MenuCategory, string> = {
+export const CATEGORY_IMAGES: Record<string, string> = {
+  combo: "/menu/board.jpg",
   mixed_veg: "/menu/mixed-veg.jpg",
   paneer: "/menu/paneer.jpg",
   cheese: "/menu/cheese.jpg",
@@ -8,6 +9,10 @@ export const CATEGORY_IMAGES: Record<MenuCategory, string> = {
   coffee: "/menu/coffee.jpg",
   shake: "/menu/shakes.jpg",
 };
+
+export function categoryImage(category: string) {
+  return CATEGORY_IMAGES[category] ?? "/menu/board.jpg";
+}
 
 function dish(
   id: string,
@@ -23,13 +28,83 @@ function dish(
     description,
     price,
     category,
-    imageSrc: CATEGORY_IMAGES[category],
+    imageSrc: categoryImage(category),
     tags,
     available: true,
   };
 }
 
+function combo(
+  id: string,
+  name: string,
+  description: string,
+  price: number,
+  images: [string, string, string],
+  tags?: string[],
+): MenuItem {
+  return {
+    id,
+    name,
+    description,
+    price,
+    category: "combo",
+    imageSrc: images[0],
+    comboImages: images,
+    tags: ["combo", ...(tags ?? [])],
+    available: true,
+  };
+}
+
 export const MENU_ITEMS: MenuItem[] = [
+  combo(
+    "cmb-veg-classic",
+    "Veg Classic Combo",
+    "Mixed veg sandwich + salted fries + classic cold coffee.",
+    279,
+    ["/menu/mixed-veg.jpg", "/menu/fries.jpg", "/menu/coffee.jpg"],
+    ["veg", "popular"],
+  ),
+  combo(
+    "cmb-peri",
+    "Peri-Peri Combo",
+    "Peri-peri sandwich + peri-peri fries + hazelnut coffee.",
+    319,
+    ["/menu/mixed-veg.jpg", "/menu/fries.jpg", "/menu/coffee.jpg"],
+    ["veg"],
+  ),
+  combo(
+    "cmb-paneer-tikka",
+    "Paneer Tikka Combo",
+    "Paneer tikka sandwich + loaded fries + nutella cold coffee.",
+    369,
+    ["/menu/paneer.jpg", "/menu/fries.jpg", "/menu/coffee.jpg"],
+    ["veg", "popular"],
+  ),
+  combo(
+    "cmb-makhani",
+    "Makhani Combo",
+    "Paneer makhani sandwich + chaat fries + vanilla cold coffee.",
+    349,
+    ["/menu/paneer.jpg", "/menu/fries.jpg", "/menu/coffee.jpg"],
+    ["veg"],
+  ),
+  combo(
+    "cmb-cheese-grilled",
+    "Cheese Grilled Combo",
+    "Cheese grilled sandwich + salted fries + classic cold coffee.",
+    329,
+    ["/menu/cheese.jpg", "/menu/fries.jpg", "/menu/coffee.jpg"],
+    ["veg", "signature"],
+  ),
+  combo(
+    "cmb-chocolate-cheese",
+    "Chocolate Cheese Combo",
+    "Chocolate cheese sandwich + peri fries + hazelnut coffee.",
+    359,
+    ["/menu/cheese.jpg", "/menu/fries.jpg", "/menu/coffee.jpg"],
+    ["veg"],
+  ),
+
   dish("snd-veg-regular", "Regular Mixed Veg", "Classic veg sandwich with fresh veggies & creamy spread.", 99, "mixed_veg", ["veg"]),
   dish("snd-veg-peri", "Peri-Peri Sandwich", "Spicy peri-peri veggies with creamy sauce.", 109, "mixed_veg", ["veg"]),
   dish("snd-veg-makhani", "Makhani Sandwich", "Rich makhani-style filling with creamy touch.", 119, "mixed_veg", ["veg"]),
@@ -55,7 +130,7 @@ export const MENU_ITEMS: MenuItem[] = [
   dish("fry-loaded", "Loaded Fries", "Topped with sauce, veggies & cheese.", 129, "fries", ["popular"]),
 
   dish("cof-classic", "Classic Cold Coffee", "Smooth & refreshing.", 129, "coffee", ["iced"]),
-  dish("cof-chocolate", "Chocolate Cold Coffee", "Rich chocolate indulgence.", 149, "coffee", ["iced"]),
+  dish("cof-chocolate", "Hazelnut Coffee", "Smooth hazelnut cold coffee.", 149, "coffee", ["iced"]),
   dish("cof-nutella", "Nutella Cold Coffee", "Nutella blended cold coffee.", 159, "coffee", ["iced"]),
   dish("cof-vanilla", "Vanilla Cold Coffee", "Vanilla flavour delight.", 149, "coffee", ["iced"]),
 
@@ -65,9 +140,14 @@ export const MENU_ITEMS: MenuItem[] = [
 ];
 
 export const CATEGORY_META: Record<
-  MenuCategory,
+  string,
   { label: string; plural: string; blurb: string }
 > = {
+  combo: {
+    label: "Combos",
+    plural: "combos",
+    blurb: "Sandwich + fries + cold coffee together",
+  },
   mixed_veg: {
     label: "Mixed veg sandwiches",
     plural: "sandwiches",
@@ -100,7 +180,8 @@ export const CATEGORY_META: Record<
   },
 };
 
-export const CATEGORY_ORDER: MenuCategory[] = [
+export const CATEGORY_ORDER: string[] = [
+  "combo",
   "mixed_veg",
   "paneer",
   "cheese",
@@ -109,8 +190,76 @@ export const CATEGORY_ORDER: MenuCategory[] = [
   "shake",
 ];
 
-export const SANDWICH_CATEGORIES: MenuCategory[] = ["mixed_veg", "paneer", "cheese"];
-export const DRINK_CATEGORIES: MenuCategory[] = ["coffee", "shake"];
+export const SANDWICH_CATEGORIES: string[] = ["mixed_veg", "paneer", "cheese"];
+export const DRINK_CATEGORIES: string[] = ["coffee", "shake"];
+
+export type MenuShelf = string;
+
+export const MENU_SHELVES: {
+  id: MenuShelf;
+  label: string;
+  blurb?: string;
+  categories: string[];
+}[] = [
+  {
+    id: "combo",
+    label: "Combo",
+    blurb: "Sandwich + fries + cold coffee together",
+    categories: ["combo"],
+  },
+  {
+    id: "sandwiches",
+    label: "Sandwiches",
+    blurb: "Mixed veg, paneer, and cheese",
+    categories: SANDWICH_CATEGORIES,
+  },
+  {
+    id: "fries",
+    label: "Fries",
+    blurb: "Salted, peri-peri, chaat, and loaded",
+    categories: ["fries"],
+  },
+  {
+    id: "coffee",
+    label: "Cold coffee",
+    blurb: "Cold coffee, blended and topped",
+    categories: ["coffee"],
+  },
+];
+
+/** Known category ids that belong on the 4 guest shelves. */
+export const SHELF_CATEGORY_IDS = new Set(MENU_SHELVES.flatMap((shelf) => shelf.categories));
+
+export function buildGuestShelves(activeCategoryIds: Set<string>) {
+  const shelves = MENU_SHELVES.filter((shelf) =>
+    shelf.categories.some((id) => activeCategoryIds.has(id)),
+  ).map((shelf) => ({
+    id: shelf.id,
+    label: shelf.label,
+    blurb: shelf.blurb ?? "",
+    categories: shelf.categories.filter((id) => activeCategoryIds.has(id)),
+  }));
+  return shelves;
+}
+
+/** Default category records for seeding the live catalog. */
+export function seedCategories(): import("@/lib/types").MenuCategoryRecord[] {
+  return CATEGORY_ORDER.map((id, index) => {
+    const meta = CATEGORY_META[id];
+    return {
+      id,
+      label: meta?.label ?? id,
+      blurb: meta?.blurb ?? "",
+      imageSrc: categoryImage(id),
+      sortOrder: index,
+      active: id !== "shake",
+    };
+  });
+}
+
+export function seedMenuItems(): MenuItem[] {
+  return MENU_ITEMS.map((item, index) => ({ ...item, sortOrder: index }));
+}
 
 export function getMenuItem(id: string) {
   return MENU_ITEMS.find((item) => item.id === id);
@@ -119,4 +268,14 @@ export function getMenuItem(id: string) {
 export function getMenuByCategory(category?: MenuCategory) {
   if (!category) return MENU_ITEMS;
   return MENU_ITEMS.filter((item) => item.category === category);
+}
+
+export function getMenuByShelf(shelf: MenuShelf, availableIds?: Set<string>) {
+  const categories = MENU_SHELVES.find((item) => item.id === shelf)?.categories ?? [];
+  return MENU_ITEMS.filter(
+    (item) =>
+      categories.includes(item.category) &&
+      item.available &&
+      (!availableIds || availableIds.has(item.id)),
+  );
 }

@@ -16,10 +16,26 @@ export function OrderItemsDialog({
   notes?: string;
   onClose: () => void;
 }) {
-  const groups = CATEGORY_ORDER.map((category) => ({
-    category,
-    lines: items.filter((item) => item.category === category),
-  })).filter((group) => group.lines.length > 0);
+  const groups = (() => {
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+    for (const category of CATEGORY_ORDER) {
+      if (items.some((item) => item.category === category)) {
+        ordered.push(category);
+        seen.add(category);
+      }
+    }
+    for (const item of items) {
+      if (!seen.has(item.category)) {
+        ordered.push(item.category);
+        seen.add(item.category);
+      }
+    }
+    return ordered.map((category) => ({
+      category,
+      lines: items.filter((item) => item.category === category),
+    }));
+  })();
 
   return (
     <div
@@ -46,7 +62,7 @@ export function OrderItemsDialog({
           {groups.map((group) => (
             <section key={group.category}>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-espresso/50">
-                {CATEGORY_META[group.category].label}
+                {CATEGORY_META[group.category]?.label ?? group.category}
               </h3>
               <ul className="mt-2 space-y-2">
                 {group.lines.map((line) => (

@@ -4,11 +4,11 @@ import { useMemo } from "react";
 import { computeTotals, formatCategoryHeadline } from "@/lib/format";
 import { getMenuItem } from "@/lib/menu";
 import { useCartStore } from "@/store/cart-store";
-import type { CartLine, OrderLine } from "@/lib/types";
+import type { CartLine, MenuItem, OrderLine } from "@/lib/types";
 
 const EMPTY_CART: CartLine[] = [];
 
-export function useCart(tableId: string) {
+export function useCart(tableId: string, menuItems?: MenuItem[]) {
   const rawLines = useCartStore((state) => state.itemsByTable[tableId] ?? EMPTY_CART);
   const notes = useCartStore((state) => state.notesByTable[tableId] ?? "");
   const addItem = useCartStore((state) => state.addItem);
@@ -17,20 +17,21 @@ export function useCart(tableId: string) {
   const clear = useCartStore((state) => state.clear);
 
   const lines: OrderLine[] = useMemo(() => {
-    return rawLines
-      .map((line) => {
-        const item = getMenuItem(line.itemId);
-        if (!item) return null;
-        return {
-          itemId: item.id,
-          name: item.name,
-          category: item.category,
-          unitPrice: item.price,
-          quantity: line.quantity,
-        } satisfies OrderLine;
-      })
-      .filter((line): line is OrderLine => line !== null);
-  }, [rawLines]);
+    const next: OrderLine[] = [];
+    for (const line of rawLines) {
+      const fromApi = menuItems?.find((item) => item.id === line.itemId);
+      const item = fromApi ?? getMenuItem(line.itemId);
+      if (!item) continue;
+      next.push({
+        itemId: item.id,
+        name: item.name,
+        category: item.category,
+        unitPrice: item.price,
+        quantity: line.quantity,
+      });
+    }
+    return next;
+  }, [rawLines, menuItems]);
 
   const totals = useMemo(() => computeTotals(lines), [lines]);
   const headline = useMemo(() => formatCategoryHeadline(lines), [lines]);

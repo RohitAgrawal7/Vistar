@@ -13,10 +13,6 @@ function envNumber(raw: string | undefined, fallback: number) {
 }
 
 export const serverConfig = {
-  staffPin: envString(
-    process.env.STAFF_PIN ?? process.env.NEXT_PUBLIC_STAFF_PIN,
-    "2468",
-  ),
   resumeSecret: envString(
     process.env.RESUME_SECRET ?? process.env.NEXT_PUBLIC_RESUME_SECRET,
     "vistar-resume-demo",

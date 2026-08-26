@@ -2,11 +2,13 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { isRemoteApiEnabled } from "@/lib/config";
 import { orderBodiesMatch } from "@/lib/order-body";
 import { activeSessionForTable, isActiveSession } from "@/lib/session";
 import type { AuditEvent, DiningSession, Order, ResumeGrant } from "@/lib/types";
 
-export const FLOOR_STORAGE_KEY = "vistar-floor-v3";
+/** v4: remote mode no longer persists live sessions/orders (fixes admin flicker). */
+export const FLOOR_STORAGE_KEY = "vistar-floor-v4";
 
 export type OrderCommitResult =
   | { status: "created"; order: Order }
@@ -32,6 +34,37 @@ interface FloorState {
   commitIdempotentOrder: (draft: Order) => OrderCommitResult;
 }
 
+function newerIso(left: string, right: string) {
+  return new Date(left).getTime() > new Date(right).getTime();
+}
+
+function mergeByUpdatedAt<T extends { id: string; updatedAt: string }>(
+  local: T[],
+  remote: T[],
+): T[] {
+  const localById = new Map(local.map((item) => [item.id, item]));
+  return remote.map((item) => {
+    const prev = localById.get(item.id);
+    if (prev && newerIso(prev.updatedAt, item.updatedAt)) return prev;
+    return item;
+  });
+}
+
+function floorSignature(
+  sessions: DiningSession[],
+  orders: Order[],
+  auditLog: AuditEvent[],
+) {
+  const sessionPart = sessions
+    .map((item) => `${item.id}:${item.status}:${item.updatedAt}`)
+    .join("|");
+  const orderPart = orders
+    .map((item) => `${item.id}:${item.status}:${item.updatedAt}:${item.total}`)
+    .join("|");
+  const auditPart = `${auditLog[0]?.id ?? ""}:${auditLog.length}`;
+  return `${sessionPart}#${orderPart}#${auditPart}`;
+}
+
 export const useOrderStore = create<FloorState>()(
   persist(
     (set, get) => ({
@@ -41,7 +74,22 @@ export const useOrderStore = create<FloorState>()(
       resumeGrants: [],
       hasSeededDemo: false,
       replaceFloor: ({ sessions, orders, auditLog }) =>
-        set(auditLog ? { sessions, orders, auditLog } : { sessions, orders }),
+        set((state) => {
+          const nextSessions = mergeByUpdatedAt(state.sessions, sessions);
+          const nextOrders = mergeByUpdatedAt(state.orders, orders);
+          const nextAudit = auditLog ?? state.auditLog;
+          if (
+            floorSignature(state.sessions, state.orders, state.auditLog) ===
+            floorSignature(nextSessions, nextOrders, nextAudit)
+          ) {
+            return state;
+          }
+          return {
+            sessions: nextSessions,
+            orders: nextOrders,
+            auditLog: nextAudit,
+          };
+        }),
       upsertSession: (session) => {
         const existing = get().sessions;
         const index = existing.findIndex((item) => item.id === session.id);
@@ -75,7 +123,9 @@ export const useOrderStore = create<FloorState>()(
           resumeGrants: [
             grant,
             ...get().resumeGrants.filter(
-              (item) => !(item.sessionId === grant.sessionId && !item.usedAt) && item.nonce !== grant.nonce,
+              (item) =>
+                !(item.sessionId === grant.sessionId && !item.usedAt) &&
+                item.nonce !== grant.nonce,
             ),
           ].slice(0, 100),
         });
@@ -129,12 +179,25 @@ export const useOrderStore = create<FloorState>()(
     {
       name: FLOOR_STORAGE_KEY,
       skipHydration: true,
+      // Live café floor must come from the API in remote mode.
+      // Persisting it caused guest tabs to wipe the admin board via storage events.
+      partialize: (state) =>
+        isRemoteApiEnabled()
+          ? { hasSeededDemo: true as const }
+          : {
+              sessions: state.sessions,
+              orders: state.orders,
+              auditLog: state.auditLog,
+              resumeGrants: state.resumeGrants,
+              hasSeededDemo: state.hasSeededDemo,
+            },
     },
   ),
 );
 
 export function pullFloorFromStorage() {
   if (typeof localStorage === "undefined") return;
+  if (isRemoteApiEnabled()) return;
   const raw = localStorage.getItem(FLOOR_STORAGE_KEY);
   if (!raw) return;
   try {

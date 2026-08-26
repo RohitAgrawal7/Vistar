@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { CartLine } from "@/lib/types";
 
-export const CART_STORAGE_KEY = "vistar-carts-v2";
+export const CART_STORAGE_KEY = "vistar-carts-v4";
 
 interface CartState {
   itemsByTable: Record<string, CartLine[]>;

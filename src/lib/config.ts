@@ -48,7 +48,7 @@ export const appConfig = {
   // Empty/0 env values used to create setInterval(0) → request storms.
   pollIntervalMs: resolvePositiveNumber(process.env.NEXT_PUBLIC_POLL_INTERVAL_MS, 3000, 1500),
   sessionIdleMinutes: resolvePositiveNumber(process.env.NEXT_PUBLIC_SESSION_IDLE_MINUTES, 15, 1),
-  staffPin: envString(process.env.NEXT_PUBLIC_STAFF_PIN, "2468"),
+  // Auth secrets must NEVER be NEXT_PUBLIC_ — verified server-side only.
   resumeSecret: envString(process.env.NEXT_PUBLIC_RESUME_SECRET, "vistar-resume-demo"),
   upiVpa: envString(process.env.NEXT_PUBLIC_UPI_VPA, "vistarcafe@upi"),
   appUrl: process.env.NEXT_PUBLIC_APP_URL?.trim() ?? "",

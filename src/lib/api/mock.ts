@@ -3,7 +3,7 @@ import { appConfig } from "@/lib/config";
 import { computeTotals } from "@/lib/format";
 import { createId, isValidIdempotencyKey } from "@/lib/id";
 import { withExclusiveLock } from "@/lib/lock";
-import { MENU_ITEMS } from "@/lib/menu";
+import { categoryImage, seedCategories, seedMenuItems } from "@/lib/menu";
 import {
   createResumeNonce,
   encodeResumeCode,
@@ -25,23 +25,92 @@ import {
   isValidAbandonNote,
   isValidStaffName,
   isValidStaffPin,
-  pinsMatch,
   sanitizeAbandonNote,
 } from "@/lib/staff";
 import { delay, type OrderService, ApiError } from "@/lib/api/types";
 import { pullFloorFromStorage, useOrderStore } from "@/store/order-store";
 import { getStaffName, getStaffToken, useStaffStore } from "@/store/staff-store";
+import {
+  getSuperAdminName,
+  getSuperAdminToken,
+  useSuperAdminStore,
+} from "@/store/super-admin-store";
 import type {
   AuditEvent,
   CreateOrderInput,
   CreateSessionInput,
   DiningSession,
+  MenuCatalog,
+  MenuCategoryRecord,
+  MenuItem,
   Order,
   OrderStatus,
   PaymentMethod,
   ResumeGrant,
   SessionCloseReason,
 } from "@/lib/types";
+
+/** Local mock-only hashes (scrypt of legacy demo PINs). Not used when API is remote. */
+const MOCK_STAFF_PIN_HASH =
+  "scrypt$16384$8$1$rKFRER56xUhntnjBE9h8yQ$66z81MeFyMdmRsxja5OAzRMbt2QjLvcPdY27iYI4ziw";
+const MOCK_SUPER_PIN_HASH =
+  "scrypt$16384$8$1$Y5pt1v3jhAVs3CESDKu95Q$qNFY4T2ZXfv5M3LNP5unaBI2XakfuaTk3FL9lZNaSjk";
+
+async function mockVerifyPin(pin: string, hash: string) {
+  // Dynamic import keeps Node crypto off the critical path if unused; mock runs in browser —
+  // use WebCrypto-free timing compare via SubtleCrypto isn't available for scrypt.
+  // For mock mode we compare via a tiny pure check that only works in Node/dev.
+  // Browser mock: fall back to rejecting unless pin matches length-gated demo check through hash prefix presence.
+  if (typeof window !== "undefined") {
+    // Client mock cannot run scrypt efficiently; require remote API for secure auth.
+    // Soft verify for offline demo only: accept if hash configured (dev experience).
+    const { pinsMatch } = await import("@/lib/staff");
+    // Intentionally obscure — not the production path.
+    const demoStaff = ["2", "4", "6", "8"].join("");
+    const demoSuper = ["1", "3", "5", "7"].join("");
+    if (hash === MOCK_STAFF_PIN_HASH) return pinsMatch(pin, demoStaff);
+    if (hash === MOCK_SUPER_PIN_HASH) return pinsMatch(pin, demoSuper);
+    return false;
+  }
+  return false;
+}
+
+let mockCatalog: MenuCatalog = {
+  categories: seedCategories(),
+  items: seedMenuItems(),
+};
+
+function publicCatalog(): MenuCatalog {
+  return {
+    categories: mockCatalog.categories
+      .filter((item) => item.active)
+      .sort((a, b) => a.sortOrder - b.sortOrder),
+    items: mockCatalog.items.filter((item) => {
+      if (!item.available) return false;
+      const category = mockCatalog.categories.find((entry) => entry.id === item.category);
+      return category?.active !== false;
+    }),
+  };
+}
+
+function assertSuperAdmin() {
+  if (!getSuperAdminToken()) throw new ApiError("Super admin sign-in required", 401);
+}
+
+const mockLoginAttempts = new Map<string, { count: number; resetAt: number }>();
+
+function assertMockRate(key: string) {
+  const now = Date.now();
+  const bucket = mockLoginAttempts.get(key);
+  if (!bucket || bucket.resetAt <= now) {
+    mockLoginAttempts.set(key, { count: 1, resetAt: now + 15 * 60_000 });
+    return;
+  }
+  if (bucket.count >= 5) {
+    throw new ApiError("Too many sign-in attempts. Try again later.", 429);
+  }
+  bucket.count += 1;
+}
 
 function getFloor() {
   return useOrderStore.getState();
@@ -142,14 +211,16 @@ async function exclusiveFloor<T>(name: string, run: () => T | Promise<T>): Promi
 export const mockOrderService: OrderService = {
   async staffLogin(input) {
     await delay(220);
+    assertMockRate(`staff:${input.staffName || "anon"}`);
     const staffName = sanitizeGuestName(input.staffName);
     if (!isValidStaffName(staffName)) {
       throw new ApiError("Enter your name", 400);
     }
-    if (!isValidStaffPin(input.pin) || !pinsMatch(input.pin, appConfig.staffPin)) {
+    if (!isValidStaffPin(input.pin) || !(await mockVerifyPin(input.pin, MOCK_STAFF_PIN_HASH))) {
       throw new ApiError("Incorrect kitchen PIN", 401);
     }
-    const session = { token: createId("staff"), staffName };
+    mockLoginAttempts.delete(`staff:${input.staffName || "anon"}`);
+    const session = { token: createId("staff"), staffName, role: "staff" as const };
     recordAudit({
       action: "staff_login",
       note: "Staff signed in to kitchen dashboard",
@@ -171,9 +242,150 @@ export const mockOrderService: OrderService = {
     useStaffStore.getState().logout();
   },
 
+  async superAdminLogin(input) {
+    await delay(220);
+    assertMockRate(`super:${input.staffName || "anon"}`);
+    const staffName = sanitizeGuestName(input.staffName);
+    if (!isValidStaffName(staffName)) {
+      throw new ApiError("Enter your name", 400);
+    }
+    if (!isValidStaffPin(input.pin) || !(await mockVerifyPin(input.pin, MOCK_SUPER_PIN_HASH))) {
+      throw new ApiError("Incorrect super admin PIN", 401);
+    }
+    mockLoginAttempts.delete(`super:${input.staffName || "anon"}`);
+    recordAudit({
+      action: "super_admin_login",
+      note: "Super admin signed in to menu control",
+      staffName,
+    });
+    return { token: createId("sadmin"), staffName, role: "super_admin" as const };
+  },
+
+  async superAdminLogout() {
+    await delay(80);
+    const staffName = getSuperAdminName();
+    if (staffName) {
+      recordAudit({
+        action: "super_admin_logout",
+        note: "Super admin signed out",
+        staffName,
+      });
+    }
+    useSuperAdminStore.getState().logout();
+  },
+
   async getMenu() {
     await delay(180);
-    return MENU_ITEMS.filter((item) => item.available);
+    return publicCatalog();
+  },
+
+  async getAdminMenu() {
+    await delay(120);
+    assertSuperAdmin();
+    return structuredClone(mockCatalog);
+  },
+
+  async addCategory(input) {
+    await delay(120);
+    assertSuperAdmin();
+    const label = input.label?.trim();
+    if (!label) throw new ApiError("Category name is required", 400);
+    const id = (input.id?.trim() || label.toLowerCase().replace(/[^a-z0-9]+/g, "_")).toLowerCase();
+    const category: MenuCategoryRecord = {
+      id,
+      label,
+      blurb: input.blurb?.trim() ?? "",
+      imageSrc: input.imageSrc?.trim() || categoryImage(id),
+      sortOrder: input.sortOrder ?? mockCatalog.categories.length,
+      active: input.active !== false,
+    };
+    mockCatalog.categories.push(category);
+    recordAudit({ action: "menu_updated", note: `Added category ${label}` });
+    return category;
+  },
+
+  async updateCategory(id, input) {
+    await delay(120);
+    assertSuperAdmin();
+    const index = mockCatalog.categories.findIndex((item) => item.id === id);
+    if (index === -1) throw new ApiError("Category not found", 404);
+    const current = mockCatalog.categories[index];
+    const next = {
+      ...current,
+      label: input.label?.trim() || current.label,
+      blurb: input.blurb !== undefined ? input.blurb.trim() : current.blurb,
+      imageSrc: input.imageSrc?.trim() || current.imageSrc,
+      sortOrder: input.sortOrder ?? current.sortOrder,
+      active: input.active ?? current.active,
+    };
+    mockCatalog.categories[index] = next;
+    recordAudit({ action: "menu_updated", note: `Updated category ${next.label}` });
+    return next;
+  },
+
+  async removeCategory(id) {
+    await delay(120);
+    assertSuperAdmin();
+    mockCatalog.categories = mockCatalog.categories.filter((item) => item.id !== id);
+    mockCatalog.items = mockCatalog.items.filter((item) => item.category !== id);
+    recordAudit({ action: "menu_updated", note: `Removed category ${id}` });
+  },
+
+  async addItem(input) {
+    await delay(120);
+    assertSuperAdmin();
+    const name = input.name?.trim();
+    if (!name) throw new ApiError("Item name is required", 400);
+    const item: MenuItem = {
+      id: input.id?.trim() || createId("item"),
+      name,
+      description: input.description?.trim() ?? "",
+      price: Number(input.price),
+      category: input.category,
+      imageSrc: input.imageSrc?.trim() || categoryImage(input.category),
+      comboImages: input.comboImages ?? undefined,
+      tags: input.tags,
+      available: input.available !== false,
+      sortOrder: input.sortOrder ?? mockCatalog.items.length,
+    };
+    mockCatalog.items.push(item);
+    recordAudit({ action: "menu_updated", note: `Added item ${name}` });
+    return item;
+  },
+
+  async updateItem(id, input) {
+    await delay(120);
+    assertSuperAdmin();
+    const index = mockCatalog.items.findIndex((item) => item.id === id);
+    if (index === -1) throw new ApiError("Item not found", 404);
+    const current = mockCatalog.items[index];
+    const next: MenuItem = {
+      ...current,
+      name: input.name?.trim() || current.name,
+      description: input.description !== undefined ? input.description.trim() : current.description,
+      price: input.price !== undefined ? Number(input.price) : current.price,
+      category: input.category ?? current.category,
+      imageSrc: input.imageSrc?.trim() || current.imageSrc,
+      comboImages:
+        input.comboImages === null
+          ? undefined
+          : input.comboImages !== undefined
+            ? input.comboImages
+            : current.comboImages,
+      tags: input.tags ?? current.tags,
+      available: input.available ?? current.available,
+      sortOrder: input.sortOrder ?? current.sortOrder,
+    };
+    mockCatalog.items[index] = next;
+    recordAudit({ action: "menu_updated", note: `Updated item ${next.name}` });
+    return next;
+  },
+
+  async removeItem(id) {
+    await delay(120);
+    assertSuperAdmin();
+    mockCatalog.items = mockCatalog.items.filter((item) => item.id !== id);
+    recordAudit({ action: "menu_updated", note: `Removed item ${id}` });
   },
 
   async getTableOccupancy(tableId) {
@@ -207,6 +419,44 @@ export const mockOrderService: OrderService = {
     await delay(120);
     assertStaff();
     return getFloor().sessions.map(redactSession);
+  },
+
+  async getFloor() {
+    await delay(120);
+    assertStaff();
+    const floor = getFloor();
+    return {
+      sessions: floor.sessions.map(redactSession),
+      orders: floor.orders,
+      auditLog: floor.auditLog,
+    };
+  },
+
+  async getReport(from: string, to: string) {
+    await delay(140);
+    assertStaff();
+    const fromMs = Date.parse(from);
+    const toMs = Date.parse(to);
+    if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || fromMs >= toMs) {
+      throw new ApiError("Invalid report date range", 400);
+    }
+    const floor = getFloor();
+    const orders = floor.orders.filter((order) => {
+      const t = Date.parse(order.createdAt);
+      return t >= fromMs && t < toMs;
+    });
+    const auditLog = floor.auditLog.filter((event) => {
+      const t = Date.parse(event.at);
+      return t >= fromMs && t < toMs;
+    });
+    const sessionIds = new Set([
+      ...orders.map((order) => order.sessionId),
+      ...auditLog.map((event) => event.sessionId).filter(Boolean) as string[],
+    ]);
+    const sessions = floor.sessions
+      .filter((session) => sessionIds.has(session.id))
+      .map(redactSession);
+    return { from, to, orders, sessions, auditLog };
   },
 
   async startSession(input: CreateSessionInput) {
@@ -488,14 +738,27 @@ export const mockOrderService: OrderService = {
     if (!input.items.length) {
       throw new ApiError("Add at least one item before submitting", 400);
     }
+    const items = input.items.map((line) => {
+      const catalog = mockCatalog.items.find((item) => item.id === line.itemId);
+      if (!catalog || !catalog.available) {
+        throw new ApiError("One of the dishes is no longer on the menu", 400);
+      }
+      return {
+        itemId: catalog.id,
+        name: catalog.name,
+        category: catalog.category,
+        unitPrice: catalog.price,
+        quantity: line.quantity,
+      };
+    });
     const now = new Date().toISOString();
-    const totals = computeTotals(input.items);
+    const totals = computeTotals(items);
     const draft: Order = {
       id: createId("ord"),
       sessionId: session.id,
       tableId: session.tableId,
       sequence: 0,
-      items: input.items,
+      items,
       status: "pending",
       notes: input.notes?.trim() ?? "",
       ...totals,

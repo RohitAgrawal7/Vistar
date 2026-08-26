@@ -7,12 +7,15 @@ import type { AuditEvent } from "@/lib/types";
 const ACTION_LABEL: Record<AuditEvent["action"], string> = {
   staff_login: "Sign-in",
   staff_logout: "Sign-out",
+  super_admin_login: "Super admin in",
+  super_admin_logout: "Super admin out",
   session_closed: "Done",
   session_abandoned: "Force clear",
   session_resumed: "Resume device",
   session_exited: "Guest exit",
   order_cancelled: "Order deleted",
   order_restored: "Order undone",
+  menu_updated: "Menu updated",
 };
 
 export function AuditLog({ events }: { events: AuditEvent[] }) {

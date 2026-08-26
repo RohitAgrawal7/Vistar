@@ -14,6 +14,7 @@ import { ViewBillDialog } from "@/components/customer/view-bill-dialog";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/hooks/use-cart";
+import { useMenu } from "@/hooks/use-menu";
 import { useTableSession } from "@/hooks/use-session";
 import { formatCurrency } from "@/lib/format";
 import { canAddOrders } from "@/lib/session";
@@ -22,7 +23,8 @@ import { useThanksWhenStaffConfirms } from "@/hooks/use-thanks-when-staff-confir
 
 export function CustomerOrderExperience({ tableId }: { tableId: string }) {
   const router = useRouter();
-  const cart = useCart(tableId);
+  const { items: menuItems } = useMenu();
+  const cart = useCart(tableId, menuItems);
   const table = useTableSession(tableId);
   useThanksWhenStaffConfirms(tableId);
   const [mobileBillOpen, setMobileBillOpen] = useState(false);
@@ -132,11 +134,11 @@ export function CustomerOrderExperience({ tableId }: { tableId: string }) {
               {session.guestName} · Table {tableId}
             </p>
             <h1 className="mt-0.5 text-balance font-display text-xl italic leading-tight text-espresso sm:mt-1 sm:text-5xl">
-              {orderingOpen ? "Add dishes, then submit" : "Session locked"}
+              {orderingOpen ? "Pick dishes, then submit" : "Session locked"}
             </h1>
             <p className="mt-1 max-w-xl text-sm leading-5 text-espresso/70 sm:mt-2 sm:leading-6">
               {orderingOpen
-                ? "Each submit is a new kitchen ticket. They stay on this table until you pay."
+                ? "Combo is sandwich + fries + cold coffee. Scroll for more, then tap Add."
                 : "The final bill is open. Scan UPI or pay at the counter. Staff tap Done, then this phone opens thank you."}
             </p>
           </div>

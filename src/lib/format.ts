@@ -1,6 +1,6 @@
 import { appConfig } from "@/lib/config";
 import { CATEGORY_ORDER } from "@/lib/menu";
-import type { MenuCategory, OrderLine } from "@/lib/types";
+import type { OrderLine } from "@/lib/types";
 
 export function formatCurrency(amount: number) {
   const wholeRupees = appConfig.currency === "INR";
@@ -40,7 +40,8 @@ export function formatDateTime(iso: string) {
   }
 }
 
-const categoryNoun: Record<MenuCategory, { one: string; many: string }> = {
+const categoryNoun: Record<string, { one: string; many: string }> = {
+  combo: { one: "combo", many: "combos" },
   mixed_veg: { one: "sandwich", many: "sandwiches" },
   paneer: { one: "sandwich", many: "sandwiches" },
   cheese: { one: "sandwich", many: "sandwiches" },
@@ -50,27 +51,42 @@ const categoryNoun: Record<MenuCategory, { one: string; many: string }> = {
 };
 
 export function formatCategoryHeadline(items: OrderLine[]) {
-  const counts = Object.fromEntries(CATEGORY_ORDER.map((category) => [category, 0])) as Record<
-    MenuCategory,
-    number
-  >;
+  const counts: Record<string, number> = Object.fromEntries(
+    CATEGORY_ORDER.map((category) => [category, 0]),
+  );
 
   for (const item of items) {
-    if (item.category in counts) counts[item.category] += item.quantity;
+    counts[item.category] = (counts[item.category] ?? 0) + item.quantity;
   }
 
-  const sandwichCount = counts.mixed_veg + counts.paneer + counts.cheese;
+  const sandwichCount =
+    (counts.mixed_veg ?? 0) + (counts.paneer ?? 0) + (counts.cheese ?? 0);
   const parts: string[] = [];
+  if ((counts.combo ?? 0) > 0) {
+    parts.push(`${counts.combo} ${counts.combo === 1 ? "combo" : "combos"}`);
+  }
   if (sandwichCount > 0) {
     parts.push(`${sandwichCount} ${sandwichCount === 1 ? "sandwich" : "sandwiches"}`);
   }
-  (["fries", "coffee", "shake"] as const).forEach((category) => {
-    const count = counts[category];
+  for (const category of ["fries", "coffee", "shake"] as const) {
+    const count = counts[category] ?? 0;
     if (count > 0) {
-      const noun = count === 1 ? categoryNoun[category].one : categoryNoun[category].many;
+      const nounEntry = categoryNoun[category];
+      const noun = count === 1 ? nounEntry.one : nounEntry.many;
       parts.push(`${count} ${noun}`);
     }
-  });
+  }
+
+  // Custom categories (super-admin added)
+  for (const [category, count] of Object.entries(counts)) {
+    if (
+      count > 0 &&
+      !CATEGORY_ORDER.includes(category) &&
+      !["mixed_veg", "paneer", "cheese", "combo", "fries", "coffee", "shake"].includes(category)
+    ) {
+      parts.push(`${count} ${category}`);
+    }
+  }
 
   return parts.join(", ") || "No items selected";
 }

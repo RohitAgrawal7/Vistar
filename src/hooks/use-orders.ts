@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, orderService } from "@/lib/api";
 import { appConfig, isRemoteApiEnabled } from "@/lib/config";
 import { isActiveSession } from "@/lib/session";
@@ -15,6 +15,9 @@ export function useOrders(tableId?: string) {
   const upsertSession = useOrderStore((state) => state.upsertSession);
   const [mutating, setMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inFlightRef = useRef(false);
+  const pollGenRef = useRef(0);
+  const quietUntilRef = useRef(0);
 
   const orders = useMemo(() => {
     const scoped = tableId
@@ -28,7 +31,10 @@ export function useOrders(tableId?: string) {
   const activeSessions = useMemo(
     () =>
       sessions
-        .filter((session) => (tableId ? session.tableId === tableId : true) && isActiveSession(session))
+        .filter(
+          (session) =>
+            (tableId ? session.tableId === tableId : true) && isActiveSession(session),
+        )
         .sort((a, b) => Number(a.tableId) - Number(b.tableId)),
     [sessions, tableId],
   );
@@ -37,52 +43,87 @@ export function useOrders(tableId?: string) {
     () =>
       sessions
         .filter((session) => session.status === "closed")
-        .sort((a, b) => new Date(b.closedAt ?? b.updatedAt).getTime() - new Date(a.closedAt ?? a.updatedAt).getTime()),
+        .sort(
+          (a, b) =>
+            new Date(b.closedAt ?? b.updatedAt).getTime() -
+            new Date(a.closedAt ?? a.updatedAt).getTime(),
+        ),
     [sessions],
   );
 
   useEffect(() => {
     if (!isRemoteApiEnabled()) return;
     let cancelled = false;
-    const pull = () => {
-      void Promise.all([
-        orderService.listSessions(),
-        orderService.listOrders(),
-        orderService.listAuditEvents(),
-      ])
-        .then(([remoteSessions, remoteOrders, remoteAudit]) => {
-          if (cancelled) return;
-          setError(null);
-          useOrderStore.getState().replaceFloor({
-            sessions: remoteSessions,
-            orders: remoteOrders,
-            auditLog: remoteAudit,
-          });
-        })
-        .catch((err) => {
-          if (cancelled) return;
-          const message =
-            err instanceof ApiError
-              ? err.message
-              : "Kitchen is offline. In a second terminal run: cd backend && npm run dev";
-          setError(message);
+    let timer: number | null = null;
+
+    const pull = async (reason: "interval" | "focus" | "mount") => {
+      if (cancelled) return;
+      if (typeof document !== "undefined" && document.hidden && reason === "interval") {
+        return;
+      }
+      if (inFlightRef.current) return;
+      if (Date.now() < quietUntilRef.current && reason === "interval") return;
+
+      inFlightRef.current = true;
+      const gen = ++pollGenRef.current;
+      try {
+        const floor = await orderService.getFloor();
+        if (cancelled || gen !== pollGenRef.current) return;
+        setError(null);
+        useOrderStore.getState().replaceFloor({
+          sessions: floor.sessions,
+          orders: floor.orders,
+          auditLog: floor.auditLog,
         });
+      } catch (err) {
+        if (cancelled) return;
+        // Keep showing last good floor — never blank the board on a blip.
+        const message =
+          err instanceof ApiError
+            ? err.message
+            : "Kitchen is offline. Check /api/health and try again.";
+        setError(message);
+      } finally {
+        inFlightRef.current = false;
+      }
     };
-    pull();
-    const id = window.setInterval(pull, appConfig.pollIntervalMs);
+
+    const schedule = () => {
+      if (timer != null) window.clearInterval(timer);
+      timer = window.setInterval(() => void pull("interval"), appConfig.pollIntervalMs);
+    };
+
+    void pull("mount");
+    schedule();
+
+    const onVisibility = () => {
+      if (!document.hidden) void pull("focus");
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onVisibility);
+
     return () => {
       cancelled = true;
-      window.clearInterval(id);
+      if (timer != null) window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onVisibility);
     };
   }, []);
+
+  const bumpQuiet = () => {
+    pollGenRef.current += 1;
+    quietUntilRef.current = Date.now() + 2000;
+  };
 
   const advanceStatus = useCallback(
     async (id: string, status: OrderStatus) => {
       setMutating(true);
       setError(null);
+      bumpQuiet();
       try {
         const order = await orderService.updateOrderStatus(id, status);
         upsertOrder(order);
+        bumpQuiet();
         return order;
       } catch (err) {
         const message = err instanceof ApiError ? err.message : "Could not update order";
@@ -99,9 +140,11 @@ export function useOrders(tableId?: string) {
     async (sessionId: string) => {
       setMutating(true);
       setError(null);
+      bumpQuiet();
       try {
         const session = await orderService.closeSession(sessionId);
         upsertSession(session);
+        bumpQuiet();
         return session;
       } catch (err) {
         const message = err instanceof ApiError ? err.message : "Could not close the table";
@@ -118,9 +161,11 @@ export function useOrders(tableId?: string) {
     async (sessionId: string, note: string) => {
       setMutating(true);
       setError(null);
+      bumpQuiet();
       try {
         const session = await orderService.abandonSession(sessionId, note);
         upsertSession(session);
+        bumpQuiet();
         return session;
       } catch (err) {
         const message = err instanceof ApiError ? err.message : "Could not free the table";

@@ -1,17 +1,24 @@
 import { appConfig } from "@/lib/config";
 import { ApiError, type OrderService } from "@/lib/api/types";
 import { getStaffToken } from "@/store/staff-store";
+import { getSuperAdminToken } from "@/store/super-admin-store";
 import type {
   AnalyticsSnapshot,
   AuditEvent,
   CreateOrderInput,
   CreateSessionInput,
   DiningSession,
+  FloorSnapshot,
   GuestSessionSnapshot,
+  MenuCatalog,
+  MenuCategoryInput,
+  MenuCategoryRecord,
   MenuItem,
+  MenuItemInput,
   Order,
   OrderStatus,
   PaymentMethod,
+  ReportSlice,
   ResumeClaimResult,
   ResumeTicket,
   ReviewInput,
@@ -22,6 +29,11 @@ import type {
 
 function staffHeaders(): HeadersInit {
   const token = getStaffToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function superAdminHeaders(): HeadersInit {
+  const token = getSuperAdminToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -74,7 +86,50 @@ export const httpOrderService: OrderService = {
       body: JSON.stringify(input),
     }),
   staffLogout: () => request<void>("/staff/logout", { method: "POST", headers: staffHeaders() }),
-  getMenu: () => request<MenuItem[]>("/menu"),
+  superAdminLogin: (input: StaffLoginInput) =>
+    request<StaffSession>("/super-admin/login", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  superAdminLogout: () =>
+    request<void>("/super-admin/logout", { method: "POST", headers: superAdminHeaders() }),
+  getMenu: () => request<MenuCatalog>("/menu"),
+  getAdminMenu: () =>
+    request<MenuCatalog>("/super-admin/menu", { headers: superAdminHeaders() }),
+  addCategory: (input: MenuCategoryInput) =>
+    request<MenuCategoryRecord>("/super-admin/categories", {
+      method: "POST",
+      headers: superAdminHeaders(),
+      body: JSON.stringify(input),
+    }),
+  updateCategory: (id, input) =>
+    request<MenuCategoryRecord>(`/super-admin/categories/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: superAdminHeaders(),
+      body: JSON.stringify(input),
+    }),
+  removeCategory: (id) =>
+    request<void>(`/super-admin/categories/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: superAdminHeaders(),
+    }),
+  addItem: (input: MenuItemInput) =>
+    request<MenuItem>("/super-admin/items", {
+      method: "POST",
+      headers: superAdminHeaders(),
+      body: JSON.stringify(input),
+    }),
+  updateItem: (id, input) =>
+    request<MenuItem>(`/super-admin/items/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: superAdminHeaders(),
+      body: JSON.stringify(input),
+    }),
+  removeItem: (id) =>
+    request<void>(`/super-admin/items/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: superAdminHeaders(),
+    }),
   getTableOccupancy: (tableId) => request<TableOccupancy>(`/tables/${encodeURIComponent(tableId)}`),
   getMySession: (tableId, token) =>
     request<GuestSessionSnapshot | null>(
@@ -82,6 +137,12 @@ export const httpOrderService: OrderService = {
       { headers: { Authorization: `Bearer ${token}` } },
     ),
   listSessions: () => request<DiningSession[]>("/sessions", { headers: staffHeaders() }),
+  getFloor: () => request<FloorSnapshot>("/floor", { headers: staffHeaders() }),
+  getReport: (from, to) =>
+    request<ReportSlice>(
+      `/reports?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+      { headers: staffHeaders() },
+    ),
   startSession: (input: CreateSessionInput) =>
     request<DiningSession>("/sessions", {
       method: "POST",

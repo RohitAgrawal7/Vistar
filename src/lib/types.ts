@@ -1,4 +1,7 @@
-export type MenuCategory = "mixed_veg" | "paneer" | "cheese" | "fries" | "coffee" | "shake";
+/** Category id — seed uses known ids; super admin may add custom ones. */
+export type MenuCategory = string;
+
+export type StaffRole = "staff" | "super_admin";
 
 export type OrderStatus =
   | "pending"
@@ -12,6 +15,15 @@ export type SessionStatus = "open" | "billing" | "paid" | "closed";
 
 export type PaymentMethod = "card" | "wallet" | "cash";
 
+export interface MenuCategoryRecord {
+  id: string;
+  label: string;
+  blurb: string;
+  imageSrc: string;
+  sortOrder: number;
+  active: boolean;
+}
+
 export interface MenuItem {
   id: string;
   name: string;
@@ -19,8 +31,16 @@ export interface MenuItem {
   price: number;
   category: MenuCategory;
   imageSrc: string;
+  /** For combo cards: sandwich, fries, cold coffee photos shown together. */
+  comboImages?: [string, string, string];
   tags?: string[];
   available: boolean;
+  sortOrder?: number;
+}
+
+export interface MenuCatalog {
+  categories: MenuCategoryRecord[];
+  items: MenuItem[];
 }
 
 export interface CartLine {
@@ -68,6 +88,7 @@ export interface StoredStaff {
   token: string;
   staffName: string;
   createdAt: string;
+  role: StaffRole;
 }
 
 export interface Order {
@@ -163,12 +184,15 @@ export interface GuestSessionSnapshot {
 export type AuditAction =
   | "staff_login"
   | "staff_logout"
+  | "super_admin_login"
+  | "super_admin_logout"
   | "session_closed"
   | "session_abandoned"
   | "session_resumed"
   | "session_exited"
   | "order_cancelled"
-  | "order_restored";
+  | "order_restored"
+  | "menu_updated";
 
 export interface AuditEvent {
   id: string;
@@ -181,14 +205,53 @@ export interface AuditEvent {
   guestName?: string;
 }
 
+/** Single staff poll payload — one queue hit instead of sessions+orders+audit. */
+export interface FloorSnapshot {
+  sessions: DiningSession[];
+  orders: Order[];
+  auditLog: AuditEvent[];
+}
+
+/** Date-scoped report payload (calendar day or month). */
+export interface ReportSlice {
+  from: string;
+  to: string;
+  orders: Order[];
+  sessions: DiningSession[];
+  auditLog: AuditEvent[];
+}
+
 export interface StaffSession {
   token: string;
   staffName: string;
+  role?: StaffRole;
 }
 
 export interface StaffLoginInput {
   pin: string;
   staffName: string;
+}
+
+export interface MenuCategoryInput {
+  id?: string;
+  label: string;
+  blurb?: string;
+  imageSrc?: string;
+  sortOrder?: number;
+  active?: boolean;
+}
+
+export interface MenuItemInput {
+  id?: string;
+  name: string;
+  description?: string;
+  price: number;
+  category: MenuCategory;
+  imageSrc?: string;
+  comboImages?: [string, string, string] | null;
+  tags?: string[];
+  available?: boolean;
+  sortOrder?: number;
 }
 
 export interface ResumeGrant {

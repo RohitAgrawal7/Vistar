@@ -43,7 +43,7 @@ export function redactSession(session: DiningSession): DiningSession {
 }
 
 export function isValidStaffPin(pin: string) {
-  return /^\d{4,8}$/.test(pin.trim());
+  return /^\d{4,12}$/.test(pin.trim());
 }
 
 export function pinsMatch(left: string, right: string) {

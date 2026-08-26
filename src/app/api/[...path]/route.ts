@@ -8,9 +8,12 @@ import {
   readJson,
 } from "@/server/http";
 import { kitchen } from "@/server/kitchen";
+import { clientAttemptKey } from "@/server/pin-auth";
 import type {
   CreateOrderInput,
   CreateSessionInput,
+  MenuCategoryInput,
+  MenuItemInput,
   OrderStatus,
   ReviewInput,
   StaffLoginInput,
@@ -40,7 +43,13 @@ export async function GET(request: Request, context: RouteContext) {
     const staff = bearerToken(request);
 
     if (eq(path, "health")) return json(await kitchen.health(), 200, request);
-    if (eq(path, "menu")) return json(kitchen.getMenu(), 200, request);
+    if (eq(path, "menu")) {
+      const { getCatalog } = await import("@/server/menu-catalog");
+      return json(await getCatalog(false), 200, request);
+    }
+    if (eq(path, "super-admin", "menu")) {
+      return json(await kitchen.getAdminMenu(staff), 200, request);
+    }
     if (path.length === 2 && path[0] === "tables") {
       return json(await kitchen.getTableOccupancy(path[1]), 200, request);
     }
@@ -49,6 +58,12 @@ export async function GET(request: Request, context: RouteContext) {
       return json(await kitchen.getMySession(tableId, staff), 200, request);
     }
     if (eq(path, "sessions")) return json(await kitchen.listSessions(staff), 200, request);
+    if (eq(path, "floor")) return json(await kitchen.getFloor(staff), 200, request);
+    if (eq(path, "reports")) {
+      const from = url.searchParams.get("from") ?? "";
+      const to = url.searchParams.get("to") ?? "";
+      return json(await kitchen.getReport(staff, from, to), 200, request);
+    }
     if (eq(path, "orders") && path.length === 1) {
       return json(await kitchen.listOrders(staff), 200, request);
     }
@@ -71,11 +86,38 @@ export async function POST(request: Request, context: RouteContext) {
 
     if (eq(path, "staff", "login")) {
       const body = await readJson<StaffLoginInput>(request);
-      return json(await kitchen.staffLogin(body), 200, request);
+      return json(
+        await kitchen.staffLogin(body, clientAttemptKey(request, "staff")),
+        200,
+        request,
+      );
     }
     if (eq(path, "staff", "logout")) {
       await kitchen.staffLogout(staff);
       return empty(204, request);
+    }
+    if (eq(path, "maintenance", "purge")) {
+      return json(await kitchen.purgeOldCustomerData(staff), 200, request);
+    }
+    if (eq(path, "super-admin", "login")) {
+      const body = await readJson<StaffLoginInput>(request);
+      return json(
+        await kitchen.superAdminLogin(body, clientAttemptKey(request, "super_admin")),
+        200,
+        request,
+      );
+    }
+    if (eq(path, "super-admin", "logout")) {
+      await kitchen.superAdminLogout(staff);
+      return empty(204, request);
+    }
+    if (eq(path, "super-admin", "categories")) {
+      const body = await readJson<MenuCategoryInput>(request);
+      return json(await kitchen.addCategory(staff, body), 201, request);
+    }
+    if (eq(path, "super-admin", "items")) {
+      const body = await readJson<MenuItemInput>(request);
+      return json(await kitchen.addItem(staff, body), 201, request);
     }
     if (eq(path, "sessions") && path.length === 1) {
       const body = await readJson<CreateSessionInput>(request);
@@ -147,6 +189,32 @@ export async function PATCH(request: Request, context: RouteContext) {
         200,
         request,
       );
+    }
+    if (path.length === 3 && path[0] === "super-admin" && path[1] === "categories") {
+      const body = await readJson<Partial<MenuCategoryInput>>(request);
+      return json(await kitchen.updateCategory(staff, path[2], body), 200, request);
+    }
+    if (path.length === 3 && path[0] === "super-admin" && path[1] === "items") {
+      const body = await readJson<Partial<MenuItemInput>>(request);
+      return json(await kitchen.updateItem(staff, path[2], body), 200, request);
+    }
+    throw new ApiError("Not found", 404);
+  } catch (err) {
+    return errorResponse(err, request);
+  }
+}
+
+export async function DELETE(request: Request, context: RouteContext) {
+  try {
+    const path = await parts(context);
+    const staff = bearerToken(request);
+    if (path.length === 3 && path[0] === "super-admin" && path[1] === "categories") {
+      await kitchen.removeCategory(staff, path[2]);
+      return empty(204, request);
+    }
+    if (path.length === 3 && path[0] === "super-admin" && path[1] === "items") {
+      await kitchen.removeItem(staff, path[2]);
+      return empty(204, request);
     }
     throw new ApiError("Not found", 404);
   } catch (err) {

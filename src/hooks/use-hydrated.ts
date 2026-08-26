@@ -7,6 +7,10 @@ import { useCartStore, CART_STORAGE_KEY } from "@/store/cart-store";
 import { useGuestStore } from "@/store/guest-store";
 import { FLOOR_STORAGE_KEY, pullFloorFromStorage, useOrderStore } from "@/store/order-store";
 import { STAFF_STORAGE_KEY, useStaffStore } from "@/store/staff-store";
+import {
+  SUPER_ADMIN_STORAGE_KEY,
+  useSuperAdminStore,
+} from "@/store/super-admin-store";
 import { OUTBOX_STORAGE_KEY, useOutboxStore } from "@/store/outbox-store";
 
 export function useHydrated() {
@@ -18,6 +22,7 @@ export function useHydrated() {
       useCartStore.persist.rehydrate(),
       useGuestStore.persist.rehydrate(),
       useStaffStore.persist.rehydrate(),
+      useSuperAdminStore.persist.rehydrate(),
       useOutboxStore.persist.rehydrate(),
     ]).then(() => {
       const state = useOrderStore.getState();
@@ -41,7 +46,8 @@ export function useHydrated() {
     });
 
     const onStorage = (event: StorageEvent) => {
-      if (event.key === FLOOR_STORAGE_KEY) {
+      // Remote café floor is API-owned — never let another tab wipe admin/guest UI.
+      if (event.key === FLOOR_STORAGE_KEY && !isRemoteApiEnabled()) {
         pullFloorFromStorage();
       }
       if (event.key === CART_STORAGE_KEY) {
@@ -52,6 +58,9 @@ export function useHydrated() {
       }
       if (event.key === STAFF_STORAGE_KEY) {
         void useStaffStore.persist.rehydrate();
+      }
+      if (event.key === SUPER_ADMIN_STORAGE_KEY) {
+        void useSuperAdminStore.persist.rehydrate();
       }
       if (event.key === OUTBOX_STORAGE_KEY) {
         void useOutboxStore.persist.rehydrate();

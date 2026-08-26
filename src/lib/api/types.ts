@@ -4,11 +4,17 @@ import type {
   CreateOrderInput,
   CreateSessionInput,
   DiningSession,
+  FloorSnapshot,
   GuestSessionSnapshot,
+  MenuCatalog,
+  MenuCategoryInput,
+  MenuCategoryRecord,
   MenuItem,
+  MenuItemInput,
   Order,
   OrderStatus,
   PaymentMethod,
+  ReportSlice,
   ResumeClaimResult,
   ResumeTicket,
   ReviewInput,
@@ -30,10 +36,21 @@ export class ApiError extends Error {
 export interface OrderService {
   staffLogin(input: StaffLoginInput): Promise<StaffSession>;
   staffLogout(): Promise<void>;
-  getMenu(): Promise<MenuItem[]>;
+  superAdminLogin(input: StaffLoginInput): Promise<StaffSession>;
+  superAdminLogout(): Promise<void>;
+  getMenu(): Promise<MenuCatalog>;
+  getAdminMenu(): Promise<MenuCatalog>;
+  addCategory(input: MenuCategoryInput): Promise<MenuCategoryRecord>;
+  updateCategory(id: string, input: Partial<MenuCategoryInput>): Promise<MenuCategoryRecord>;
+  removeCategory(id: string): Promise<void>;
+  addItem(input: MenuItemInput): Promise<MenuItem>;
+  updateItem(id: string, input: Partial<MenuItemInput>): Promise<MenuItem>;
+  removeItem(id: string): Promise<void>;
   getTableOccupancy(tableId: string): Promise<TableOccupancy>;
   getMySession(tableId: string, token: string): Promise<GuestSessionSnapshot | null>;
   listSessions(): Promise<DiningSession[]>;
+  getFloor(): Promise<FloorSnapshot>;
+  getReport(from: string, to: string): Promise<ReportSlice>;
   startSession(input: CreateSessionInput): Promise<DiningSession>;
   requestBill(sessionId: string, token: string): Promise<DiningSession>;
   paySession(sessionId: string, token: string, method: PaymentMethod): Promise<DiningSession>;

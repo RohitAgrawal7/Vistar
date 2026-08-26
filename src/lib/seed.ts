@@ -87,7 +87,7 @@ export function getSeedFloor(): { sessions: DiningSession[]; orders: Order[] } {
     paidOrder("ord_seed_03", "ses_seed_03", "2", 1, 4, [
       { itemId: "snd-veg-regular", name: "Regular Mixed Veg", category: "mixed_veg", unitPrice: 99, quantity: 3 },
       { itemId: "fry-peri", name: "Peri-Peri Fries", category: "fries", unitPrice: 99, quantity: 6 },
-      { itemId: "cof-chocolate", name: "Chocolate Cold Coffee", category: "coffee", unitPrice: 149, quantity: 4 },
+      { itemId: "cof-chocolate", name: "Hazelnut Coffee", category: "coffee", unitPrice: 149, quantity: 4 },
     ], "cash"),
     paidOrder("ord_seed_04", "ses_seed_04", "5", 1, 3, [
       { itemId: "snd-chc-chocolate", name: "Chocolate Cheese Sandwich", category: "cheese", unitPrice: 139, quantity: 6 },

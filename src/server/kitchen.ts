@@ -1,5 +1,4 @@
 import { computeAnalytics } from "@/lib/analytics";
-import { getMenuItem, MENU_ITEMS } from "@/lib/menu";
 import {
   createResumeNonce,
   encodeResumeCode,
@@ -11,6 +10,8 @@ import {
 import type {
   CreateOrderInput,
   CreateSessionInput,
+  MenuCategoryInput,
+  MenuItemInput,
   Order,
   OrderLine,
   OrderStatus,
@@ -23,8 +24,23 @@ import type {
   StoredSession,
 } from "@/lib/types";
 import { serverConfig } from "@/server/config";
-import { withFloor, withFloorRead, type FloorState } from "@/server/floor-store";
+import { withFloor, withFloorRead, loadReportSlice, type FloorState } from "@/server/floor-store";
 import { ApiError, computeTotals, createId, isValidIdempotencyKey } from "@/server/http";
+import {
+  authenticatePin,
+  createSessionToken,
+} from "@/server/pin-auth";
+import {
+  addCategory,
+  addItem,
+  getCatalog,
+  getPublicMenu,
+  removeCategory,
+  removeItem,
+  resolveMenuItem,
+  updateCategory,
+  updateItem,
+} from "@/server/menu-catalog";
 import {
   activeSessionForTable,
   canAddOrders,
@@ -33,15 +49,14 @@ import {
   isValidAbandonNote,
   isValidGuestName,
   isValidStaffName,
-  isValidStaffPin,
   orderBodiesMatch,
   ordersForSession,
-  pinsMatch,
   redactSession,
   sanitizeAbandonNote,
   sanitizeGuestName,
 } from "@/server/rules";
 import { getSupabase, supabaseEnvStatus } from "@/server/supabase";
+import { scheduleRetentionCleanup, runRetentionCleanup } from "@/server/retention";
 
 const PAYMENT_METHODS: PaymentMethod[] = ["card", "wallet", "cash"];
 
@@ -69,6 +84,14 @@ function assertGuest(session: StoredSession, token: string) {
 function requireStaff(floor: FloorState, token: string) {
   const staff = floor.staff.find((item) => item.token === token);
   if (!staff) throw new ApiError("Staff sign-in required", 401);
+  return staff;
+}
+
+function requireSuperAdmin(floor: FloorState, token: string) {
+  const staff = requireStaff(floor, token);
+  if (staff.role !== "super_admin") {
+    throw new ApiError("Super admin sign-in required", 403);
+  }
   return staff;
 }
 
@@ -153,10 +176,11 @@ function markOrdersPaid(floor: FloorState, sessionId: string, method: PaymentMet
   );
 }
 
-function pricedLines(items: OrderLine[]): OrderLine[] {
+async function pricedLines(items: OrderLine[]): Promise<OrderLine[]> {
   if (!items.length) throw new ApiError("Add at least one item before submitting", 400);
-  return items.map((line) => {
-    const catalog = getMenuItem(line.itemId);
+  const next: OrderLine[] = [];
+  for (const line of items) {
+    const catalog = await resolveMenuItem(line.itemId);
     if (!catalog || !catalog.available) {
       throw new ApiError("One of the dishes is no longer on the menu", 400);
     }
@@ -164,14 +188,15 @@ function pricedLines(items: OrderLine[]): OrderLine[] {
     if (!Number.isFinite(quantity) || quantity < 1 || quantity > 20) {
       throw new ApiError("Quantity must be between 1 and 20", 400);
     }
-    return {
+    next.push({
       itemId: catalog.id,
       name: catalog.name,
       category: catalog.category,
       unitPrice: catalog.price,
       quantity,
-    };
-  });
+    });
+  }
+  return next;
 }
 
 function parseMethod(value: unknown): PaymentMethod {
@@ -182,8 +207,91 @@ function parseMethod(value: unknown): PaymentMethod {
 }
 
 export const kitchen = {
-  getMenu() {
-    return MENU_ITEMS.filter((item) => item.available);
+  async getMenu() {
+    return getPublicMenu();
+  },
+
+  async getAdminMenu(staffToken: string) {
+    await withFloorRead((floor) => {
+      requireSuperAdmin(floor, staffToken);
+    });
+    return getCatalog(true);
+  },
+
+  async addCategory(staffToken: string, input: MenuCategoryInput) {
+    return withFloor(async (floor) => {
+      const staff = requireSuperAdmin(floor, staffToken);
+      const category = await addCategory(input);
+      recordAudit(floor, {
+        action: "menu_updated",
+        note: `Added category ${category.label}`,
+        staffName: staff.staffName,
+      });
+      return category;
+    });
+  },
+
+  async updateCategory(staffToken: string, id: string, input: Partial<MenuCategoryInput>) {
+    return withFloor(async (floor) => {
+      const staff = requireSuperAdmin(floor, staffToken);
+      const category = await updateCategory(id, input);
+      recordAudit(floor, {
+        action: "menu_updated",
+        note: `Updated category ${category.label}`,
+        staffName: staff.staffName,
+      });
+      return category;
+    });
+  },
+
+  async removeCategory(staffToken: string, id: string) {
+    return withFloor(async (floor) => {
+      const staff = requireSuperAdmin(floor, staffToken);
+      await removeCategory(id);
+      recordAudit(floor, {
+        action: "menu_updated",
+        note: `Removed category ${id}`,
+        staffName: staff.staffName,
+      });
+    });
+  },
+
+  async addItem(staffToken: string, input: MenuItemInput) {
+    return withFloor(async (floor) => {
+      const staff = requireSuperAdmin(floor, staffToken);
+      const item = await addItem(input);
+      recordAudit(floor, {
+        action: "menu_updated",
+        note: `Added item ${item.name}`,
+        staffName: staff.staffName,
+      });
+      return item;
+    });
+  },
+
+  async updateItem(staffToken: string, id: string, input: Partial<MenuItemInput>) {
+    return withFloor(async (floor) => {
+      const staff = requireSuperAdmin(floor, staffToken);
+      const item = await updateItem(id, input);
+      recordAudit(floor, {
+        action: "menu_updated",
+        note: `Updated item ${item.name}`,
+        staffName: staff.staffName,
+      });
+      return item;
+    });
+  },
+
+  async removeItem(staffToken: string, id: string) {
+    return withFloor(async (floor) => {
+      const staff = requireSuperAdmin(floor, staffToken);
+      await removeItem(id);
+      recordAudit(floor, {
+        action: "menu_updated",
+        note: `Removed item ${id}`,
+        staffName: staff.staffName,
+      });
+    });
   },
 
   async health() {
@@ -203,6 +311,7 @@ export const kitchen = {
       };
     }
     const { error } = await getSupabase().from("dining_sessions").select("id").limit(1);
+    scheduleRetentionCleanup();
     return {
       ok: !error,
       service: "vistar-kitchen",
@@ -217,24 +326,50 @@ export const kitchen = {
     };
   },
 
-  async staffLogin(input: StaffLoginInput) {
+  async staffLogin(input: StaffLoginInput, attemptKey = "staff:unknown") {
     const staffName = sanitizeGuestName(input.staffName ?? "");
     if (!isValidStaffName(staffName)) throw new ApiError("Enter your name", 400);
-    if (!isValidStaffPin(input.pin) || !pinsMatch(input.pin, serverConfig.staffPin)) {
-      throw new ApiError("Incorrect kitchen PIN", 401);
-    }
+    await authenticatePin("staff", input.pin ?? "", attemptKey);
     return withFloor((floor) => {
-      const token = createId("staff");
+      const token = createSessionToken("staff");
       floor.staff = [
-        { token, staffName, createdAt: new Date().toISOString() },
-        ...floor.staff.filter((item) => item.staffName !== staffName),
+        { token, staffName, createdAt: new Date().toISOString(), role: "staff" as const },
+        ...floor.staff.filter(
+          (item) => !(item.staffName === staffName && item.role === "staff"),
+        ),
       ].slice(0, 40);
       recordAudit(floor, {
         action: "staff_login",
         note: "Staff signed in to kitchen dashboard",
         staffName,
       });
-      return { token, staffName };
+      return { token, staffName, role: "staff" as const };
+    });
+  },
+
+  async superAdminLogin(input: StaffLoginInput, attemptKey = "super_admin:unknown") {
+    const staffName = sanitizeGuestName(input.staffName ?? "");
+    if (!isValidStaffName(staffName)) throw new ApiError("Enter your name", 400);
+    await authenticatePin("super_admin", input.pin ?? "", attemptKey);
+    return withFloor((floor) => {
+      const token = createSessionToken("sadmin");
+      floor.staff = [
+        {
+          token,
+          staffName,
+          createdAt: new Date().toISOString(),
+          role: "super_admin" as const,
+        },
+        ...floor.staff.filter(
+          (item) => !(item.staffName === staffName && item.role === "super_admin"),
+        ),
+      ].slice(0, 40);
+      recordAudit(floor, {
+        action: "super_admin_login",
+        note: "Super admin signed in to menu control",
+        staffName,
+      });
+      return { token, staffName, role: "super_admin" as const };
     });
   },
 
@@ -243,13 +378,17 @@ export const kitchen = {
       const staff = floor.staff.find((item) => item.token === token);
       if (staff) {
         recordAudit(floor, {
-          action: "staff_logout",
-          note: "Staff signed out",
+          action: staff.role === "super_admin" ? "super_admin_logout" : "staff_logout",
+          note: staff.role === "super_admin" ? "Super admin signed out" : "Staff signed out",
           staffName: staff.staffName,
         });
         floor.staff = floor.staff.filter((item) => item.token !== token);
       }
     });
+  },
+
+  async superAdminLogout(token: string) {
+    return this.staffLogout(token);
   },
 
   async getTableOccupancy(tableId: string) {
@@ -289,6 +428,39 @@ export const kitchen = {
     return withFloorRead((floor) => {
       requireStaff(floor, staffToken);
       return floor.sessions.map(redactSession);
+    });
+  },
+
+  async getFloor(staffToken: string) {
+    scheduleRetentionCleanup();
+    return withFloorRead((floor) => {
+      requireStaff(floor, staffToken);
+      return {
+        sessions: floor.sessions.map(redactSession),
+        orders: floor.orders,
+        auditLog: floor.auditLog,
+      };
+    });
+  },
+
+  async getReport(staffToken: string, from: string, to: string) {
+    await withFloorRead((floor) => {
+      requireStaff(floor, staffToken);
+    });
+    const slice = await loadReportSlice(from, to);
+    return {
+      from: slice.from,
+      to: slice.to,
+      orders: slice.orders,
+      sessions: slice.sessions.map(redactSession),
+      auditLog: slice.auditLog,
+    };
+  },
+
+  async purgeOldCustomerData(staffToken: string) {
+    return withFloorRead(async (floor) => {
+      requireStaff(floor, staffToken);
+      return runRetentionCleanup(undefined, { force: true });
     });
   },
 
@@ -570,7 +742,7 @@ export const kitchen = {
     if (!isValidIdempotencyKey(input.idempotencyKey)) {
       throw new ApiError("A valid idempotency key is required", 400);
     }
-    const items = pricedLines(input.items ?? []);
+    const items = await pricedLines(input.items ?? []);
     return withFloor((floor) => {
       const session = requireSession(floor, input.sessionId);
       assertGuest(session, input.token);
