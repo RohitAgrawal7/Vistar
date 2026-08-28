@@ -117,10 +117,102 @@ async function loadFromDb(): Promise<MenuCatalog | null> {
     if (catErr || itemErr) return seeded;
     return seeded;
   }
-  return {
+  const loaded = {
     categories: categoryRows.map(categoryFromRow),
     items: itemRows.map(itemFromRow),
   };
+  return reconcileSeedMenu(loaded);
+}
+
+/** Keep cold coffee + shake items in sync with code defaults (prices, names, shake tab). */
+const SEED_SYNC_ITEM_IDS = new Set([
+  "cof-classic",
+  "cof-chocolate",
+  "cof-nutella",
+  "cof-vanilla",
+  "shk-oreo",
+  "shk-chocolate",
+]);
+const REMOVED_MENU_ITEM_IDS = new Set(["shk-kitkat"]);
+
+async function reconcileSeedMenu(catalog: MenuCatalog): Promise<MenuCatalog> {
+  const seed = defaultCatalog();
+  let changed = false;
+
+  const categories = catalog.categories.map((category) => ({ ...category }));
+  for (const seedCategory of seed.categories.filter((item) => item.id === "coffee" || item.id === "shake")) {
+    const index = categories.findIndex((item) => item.id === seedCategory.id);
+    if (index < 0) {
+      categories.push(seedCategory);
+      changed = true;
+      continue;
+    }
+    const current = categories[index];
+    const next = {
+      ...current,
+      label: seedCategory.label,
+      blurb: seedCategory.blurb,
+      active: true,
+    };
+    if (
+      current.label !== next.label ||
+      current.blurb !== next.blurb ||
+      !current.active
+    ) {
+      categories[index] = next;
+      changed = true;
+    }
+  }
+
+  let items = catalog.items.map((item) => ({ ...item }));
+  for (const seedItem of seed.items.filter((item) => SEED_SYNC_ITEM_IDS.has(item.id))) {
+    const index = items.findIndex((item) => item.id === seedItem.id);
+    if (index < 0) {
+      items.push(seedItem);
+      changed = true;
+      continue;
+    }
+    const current = items[index];
+    const next = {
+      ...current,
+      name: seedItem.name,
+      description: seedItem.description,
+      price: seedItem.price,
+      category: seedItem.category,
+      available: true,
+    };
+    if (
+      current.name !== next.name ||
+      current.description !== next.description ||
+      current.price !== next.price ||
+      current.category !== next.category ||
+      !current.available
+    ) {
+      items[index] = next;
+      changed = true;
+    }
+  }
+
+  const filtered = items.filter((item) => !REMOVED_MENU_ITEM_IDS.has(item.id));
+  if (filtered.length !== items.length) {
+    items = filtered;
+    changed = true;
+  }
+
+  if (!changed) return catalog;
+
+  const nextCatalog = { categories, items };
+  try {
+    for (const id of REMOVED_MENU_ITEM_IDS) {
+      if (catalog.items.some((item) => item.id === id)) {
+        await deleteItemFromDb(id);
+      }
+    }
+    await saveToDb(nextCatalog);
+  } catch {
+    return nextCatalog;
+  }
+  return nextCatalog;
 }
 
 async function saveToDb(catalog: MenuCatalog) {

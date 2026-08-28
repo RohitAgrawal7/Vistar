@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Coffee, Leaf, Star, UtensilsCrossed } from "lucide-react";
+import { Coffee, CupSoda, Leaf, Star, UtensilsCrossed } from "lucide-react";
 import MenuItemCard from "@/components/customer/menu-item-card";
 import { Spinner } from "@/components/ui/spinner";
 import { Alert } from "@/components/ui/alert";
@@ -13,6 +13,7 @@ function ShelfIcon({ id, className }: { id: string; className?: string }) {
   if (id === "combo") return <Star className={className} aria-hidden />;
   if (id === "sandwiches") return <Leaf className={className} aria-hidden />;
   if (id === "fries") return <UtensilsCrossed className={className} aria-hidden />;
+  if (id === "shake") return <CupSoda className={className} aria-hidden />;
   return <Coffee className={className} aria-hidden />;
 }
 
@@ -64,7 +65,7 @@ export function MenuBoard({
       className="flex min-w-0 scroll-mt-[calc(4.75rem+env(safe-area-inset-top,0px))] flex-col gap-3 sm:gap-4"
     >
       <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top,0px))] z-20 -mx-4 bg-cream/95 px-3 py-2 backdrop-blur sm:top-[calc(4rem+env(safe-area-inset-top,0px))] sm:mx-0 sm:rounded-2xl sm:border sm:border-espresso/8 sm:bg-white/85 sm:px-2">
-        <div className="grid grid-cols-4 gap-1.5" role="tablist" aria-label="Menu categories">
+        <div className="grid grid-cols-5 gap-1.5" role="tablist" aria-label="Menu categories">
           {shelves.map((option) => {
             const isSelected = shelfId === option.id;
             return (

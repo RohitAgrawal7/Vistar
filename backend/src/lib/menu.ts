@@ -50,13 +50,12 @@ export const MENU_ITEMS: MenuItem[] = [
   dish("fry-peri", "Peri-Peri Fries", "Spicy peri-peri seasoned fries.", 99, "fries"),
   dish("fry-chaat", "Chaat Masala Fries", "Tossed with chaat masala for a tangy kick.", 99, "fries", ["veg"]),
   dish("fry-loaded", "Loaded Fries", "Topped with sauce, veggies & cheese.", 129, "fries", ["popular"]),
-  dish("cof-classic", "Classic Cold Coffee", "Smooth & refreshing.", 129, "coffee", ["iced"]),
-  dish("cof-chocolate", "Hazelnut Coffee", "Smooth hazelnut cold coffee.", 149, "coffee", ["iced"]),
-  dish("cof-nutella", "Nutella Cold Coffee", "Nutella blended cold coffee.", 159, "coffee", ["iced"]),
-  dish("cof-vanilla", "Vanilla Cold Coffee", "Vanilla flavour delight.", 149, "coffee", ["iced"]),
-  dish("shk-oreo", "Oreo Shake", "Creamy Oreo crush shake.", 159, "shake"),
-  dish("shk-kitkat", "KitKat Shake", "KitKat blended chocolate shake.", 159, "shake"),
-  dish("shk-chocolate", "Chocolate Shake", "Thick & rich chocolate shake.", 149, "shake"),
+  dish("cof-classic", "Classic Cold Coffee", "Smooth & refreshing.", 79, "coffee", ["iced"]),
+  dish("cof-chocolate", "Chocolate Cold Coffee", "Rich chocolate blended cold coffee.", 89, "coffee", ["iced"]),
+  dish("cof-nutella", "Nutella Cold Coffee", "Nutella blended cold coffee.", 89, "coffee", ["iced"]),
+  dish("cof-vanilla", "Vanilla Cold Coffee", "Vanilla flavour delight.", 89, "coffee", ["iced"]),
+  dish("shk-oreo", "Oreo Shake", "Creamy Oreo crush shake.", 129, "shake"),
+  dish("shk-chocolate", "Chocolate Shake", "Thick & rich chocolate shake.", 129, "shake"),
 ];
 
 export const SANDWICH_CATEGORIES: MenuCategory[] = ["mixed_veg", "paneer", "cheese"];

@@ -73,7 +73,7 @@ export function getSeedFloor(): { sessions: DiningSession[]; orders: Order[] } {
     paidOrder("ord_seed_01", "ses_seed_01", "4", 1, 6, [
       { itemId: "snd-pnr-tikka", name: "Paneer Tikka", category: "paneer", unitPrice: 149, quantity: 8 },
       { itemId: "fry-loaded", name: "Loaded Fries", category: "fries", unitPrice: 129, quantity: 3 },
-      { itemId: "cof-classic", name: "Classic Cold Coffee", category: "coffee", unitPrice: 129, quantity: 6 },
+      { itemId: "cof-classic", name: "Classic Cold Coffee", category: "coffee", unitPrice: 79, quantity: 6 },
     ]),
     paidOrder("ord_seed_02a", "ses_seed_02", "1", 1, 5.1, [
       { itemId: "snd-veg-peri", name: "Peri-Peri Sandwich", category: "mixed_veg", unitPrice: 109, quantity: 2 },
@@ -82,25 +82,25 @@ export function getSeedFloor(): { sessions: DiningSession[]; orders: Order[] } {
       { itemId: "snd-pnr-tikka", name: "Paneer Tikka", category: "paneer", unitPrice: 149, quantity: 4 },
       { itemId: "snd-veg-makhani", name: "Makhani Sandwich", category: "mixed_veg", unitPrice: 119, quantity: 3 },
       { itemId: "fry-salted", name: "Salted Fries", category: "fries", unitPrice: 89, quantity: 4 },
-      { itemId: "shk-oreo", name: "Oreo Shake", category: "shake", unitPrice: 159, quantity: 3 },
+      { itemId: "shk-oreo", name: "Oreo Shake", category: "shake", unitPrice: 129, quantity: 3 },
     ], "wallet"),
     paidOrder("ord_seed_03", "ses_seed_03", "2", 1, 4, [
       { itemId: "snd-veg-regular", name: "Regular Mixed Veg", category: "mixed_veg", unitPrice: 99, quantity: 3 },
       { itemId: "fry-peri", name: "Peri-Peri Fries", category: "fries", unitPrice: 99, quantity: 6 },
-      { itemId: "cof-chocolate", name: "Hazelnut Coffee", category: "coffee", unitPrice: 149, quantity: 4 },
+      { itemId: "cof-chocolate", name: "Chocolate Cold Coffee", category: "coffee", unitPrice: 89, quantity: 4 },
     ], "cash"),
     paidOrder("ord_seed_04", "ses_seed_04", "5", 1, 3, [
       { itemId: "snd-chc-chocolate", name: "Chocolate Cheese Sandwich", category: "cheese", unitPrice: 139, quantity: 6 },
       { itemId: "snd-pnr-makhani", name: "Paneer Makhani", category: "paneer", unitPrice: 149, quantity: 2 },
       { itemId: "fry-loaded", name: "Loaded Fries", category: "fries", unitPrice: 129, quantity: 5 },
-      { itemId: "shk-kitkat", name: "KitKat Shake", category: "shake", unitPrice: 159, quantity: 2 },
-      { itemId: "cof-nutella", name: "Nutella Cold Coffee", category: "coffee", unitPrice: 159, quantity: 5 },
+      { itemId: "shk-chocolate", name: "Chocolate Shake", category: "shake", unitPrice: 129, quantity: 2 },
+      { itemId: "cof-nutella", name: "Nutella Cold Coffee", category: "coffee", unitPrice: 89, quantity: 5 },
     ]),
     paidOrder("ord_seed_05", "ses_seed_05", "3", 1, 2, [
       { itemId: "snd-chc-grilled", name: "Cheese Grilled Sandwich", category: "cheese", unitPrice: 129, quantity: 4 },
       { itemId: "fry-chaat", name: "Chaat Masala Fries", category: "fries", unitPrice: 99, quantity: 2 },
       { itemId: "fry-loaded", name: "Loaded Fries", category: "fries", unitPrice: 129, quantity: 2 },
-      { itemId: "cof-vanilla", name: "Vanilla Cold Coffee", category: "coffee", unitPrice: 149, quantity: 8 },
+      { itemId: "cof-vanilla", name: "Vanilla Cold Coffee", category: "coffee", unitPrice: 89, quantity: 8 },
     ], "wallet"),
   ];
 

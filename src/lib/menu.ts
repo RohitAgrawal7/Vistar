@@ -67,7 +67,7 @@ export const MENU_ITEMS: MenuItem[] = [
   combo(
     "cmb-peri",
     "Peri-Peri Combo",
-    "Peri-peri sandwich + peri-peri fries + hazelnut coffee.",
+    "Peri-peri sandwich + peri-peri fries + chocolate cold coffee.",
     319,
     ["/menu/mixed-veg.jpg", "/menu/fries.jpg", "/menu/coffee.jpg"],
     ["veg"],
@@ -99,7 +99,7 @@ export const MENU_ITEMS: MenuItem[] = [
   combo(
     "cmb-chocolate-cheese",
     "Chocolate Cheese Combo",
-    "Chocolate cheese sandwich + peri fries + hazelnut coffee.",
+    "Chocolate cheese sandwich + peri fries + chocolate cold coffee.",
     359,
     ["/menu/cheese.jpg", "/menu/fries.jpg", "/menu/coffee.jpg"],
     ["veg"],
@@ -129,14 +129,13 @@ export const MENU_ITEMS: MenuItem[] = [
   dish("fry-chaat", "Chaat Masala Fries", "Tossed with chaat masala for a tangy kick.", 99, "fries", ["veg"]),
   dish("fry-loaded", "Loaded Fries", "Topped with sauce, veggies & cheese.", 129, "fries", ["popular"]),
 
-  dish("cof-classic", "Classic Cold Coffee", "Smooth & refreshing.", 129, "coffee", ["iced"]),
-  dish("cof-chocolate", "Hazelnut Coffee", "Smooth hazelnut cold coffee.", 149, "coffee", ["iced"]),
-  dish("cof-nutella", "Nutella Cold Coffee", "Nutella blended cold coffee.", 159, "coffee", ["iced"]),
-  dish("cof-vanilla", "Vanilla Cold Coffee", "Vanilla flavour delight.", 149, "coffee", ["iced"]),
+  dish("cof-classic", "Classic Cold Coffee", "Smooth & refreshing.", 79, "coffee", ["iced"]),
+  dish("cof-chocolate", "Chocolate Cold Coffee", "Rich chocolate blended cold coffee.", 89, "coffee", ["iced"]),
+  dish("cof-nutella", "Nutella Cold Coffee", "Nutella blended cold coffee.", 89, "coffee", ["iced"]),
+  dish("cof-vanilla", "Vanilla Cold Coffee", "Vanilla flavour delight.", 89, "coffee", ["iced"]),
 
-  dish("shk-oreo", "Oreo Shake", "Creamy Oreo crush shake.", 159, "shake"),
-  dish("shk-kitkat", "KitKat Shake", "KitKat blended chocolate shake.", 159, "shake"),
-  dish("shk-chocolate", "Chocolate Shake", "Thick & rich chocolate shake.", 149, "shake"),
+  dish("shk-oreo", "Oreo Shake", "Creamy Oreo crush shake.", 129, "shake"),
+  dish("shk-chocolate", "Chocolate Shake", "Thick & rich chocolate shake.", 129, "shake"),
 ];
 
 export const CATEGORY_META: Record<
@@ -169,14 +168,14 @@ export const CATEGORY_META: Record<
     blurb: "Salted, peri-peri, chaat, and loaded",
   },
   coffee: {
-    label: "Iced coffees",
+    label: "Cold coffee",
     plural: "coffees",
-    blurb: "Cold coffee, blended and topped",
+    blurb: "Classic, chocolate, nutella, and vanilla",
   },
   shake: {
     label: "Shakes",
     plural: "shakes",
-    blurb: "Oreo, KitKat, and chocolate",
+    blurb: "Oreo and chocolate",
   },
 };
 
@@ -222,8 +221,14 @@ export const MENU_SHELVES: {
   {
     id: "coffee",
     label: "Cold coffee",
-    blurb: "Cold coffee, blended and topped",
+    blurb: "Classic, chocolate, nutella, and vanilla",
     categories: ["coffee"],
+  },
+  {
+    id: "shake",
+    label: "Shakes",
+    blurb: "Oreo and chocolate",
+    categories: ["shake"],
   },
 ];
 
@@ -252,7 +257,7 @@ export function seedCategories(): import("@/lib/types").MenuCategoryRecord[] {
       blurb: meta?.blurb ?? "",
       imageSrc: categoryImage(id),
       sortOrder: index,
-      active: id !== "shake",
+      active: true,
     };
   });
 }
