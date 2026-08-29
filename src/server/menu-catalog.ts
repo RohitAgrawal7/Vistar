@@ -124,15 +124,12 @@ async function loadFromDb(): Promise<MenuCatalog | null> {
   return reconcileSeedMenu(loaded);
 }
 
-/** Keep cold coffee + shake items in sync with code defaults (prices, names, shake tab). */
-const SEED_SYNC_ITEM_IDS = new Set([
-  "cof-classic",
-  "cof-chocolate",
-  "cof-nutella",
-  "cof-vanilla",
-  "shk-oreo",
-  "shk-chocolate",
-]);
+/** Keep seeded menu items in sync with code defaults (names + prices). */
+const SEED_SYNC_ITEM_IDS = new Set(
+  seedMenuItems()
+    .filter((item) => item.category !== "combo")
+    .map((item) => item.id),
+);
 const REMOVED_MENU_ITEM_IDS = new Set(["shk-kitkat"]);
 
 async function reconcileSeedMenu(catalog: MenuCatalog): Promise<MenuCatalog> {

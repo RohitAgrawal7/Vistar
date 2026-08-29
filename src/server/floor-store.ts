@@ -32,6 +32,11 @@ let readCache: FloorState | null = null;
 let readCacheAt = 0;
 const READ_CACHE_MS = 800;
 
+/** null = unknown, true = column exists, false = embed phone in guest_name instead. */
+let guestPhoneColumnOk: boolean | null = null;
+
+const EMBEDDED_PHONE_RE = / · ([6-9]\d{9})$/;
+
 function invalidateReadCache() {
   readCache = null;
   readCacheAt = 0;
@@ -64,11 +69,32 @@ function throwIfError(error: { message: string; code?: string } | null, fallback
   throw new ApiError(error.message || fallback, 500);
 }
 
+function isMissingGuestPhoneColumn(error: { message: string } | null) {
+  return Boolean(
+    error && /guest_phone/i.test(error.message) && /schema cache|column|Could not find/i.test(error.message),
+  );
+}
+
+function unpackGuestFields(row: Record<string, unknown>) {
+  let guestName = String(row.guest_name ?? "");
+  let guestPhone = row.guest_phone ? String(row.guest_phone) : undefined;
+  if (!guestPhone) {
+    const match = guestName.match(EMBEDDED_PHONE_RE);
+    if (match) {
+      guestPhone = match[1];
+      guestName = guestName.slice(0, -match[0].length).trim();
+    }
+  }
+  return { guestName, guestPhone };
+}
+
 function sessionFromRow(row: Record<string, unknown>): StoredSession {
+  const { guestName, guestPhone } = unpackGuestFields(row);
   return {
     id: String(row.id),
     tableId: String(row.table_id),
-    guestName: String(row.guest_name),
+    guestName,
+    guestPhone,
     token: String(row.token ?? ""),
     revokedToken: row.revoked_token ? String(row.revoked_token) : undefined,
     status: row.status as StoredSession["status"],
@@ -88,11 +114,10 @@ function sessionFromRow(row: Record<string, unknown>): StoredSession {
   };
 }
 
-function sessionToRow(session: StoredSession) {
-  return {
+function sessionToRow(session: StoredSession, withPhoneColumn: boolean) {
+  const base = {
     id: session.id,
     table_id: session.tableId,
-    guest_name: session.guestName,
     token: session.token ?? "",
     revoked_token: session.revokedToken ?? null,
     status: session.status,
@@ -110,6 +135,44 @@ function sessionToRow(session: StoredSession) {
     review_note: session.reviewNote ?? null,
     reviewed_at: stamp(session.reviewedAt),
   };
+
+  if (withPhoneColumn) {
+    return {
+      ...base,
+      guest_name: session.guestName,
+      guest_phone: session.guestPhone ?? null,
+    };
+  }
+
+  // Fallback when guest_phone column is not in Supabase yet — still keep phone for admin.
+  const guest_name = session.guestPhone
+    ? `${session.guestName} · ${session.guestPhone}`
+    : session.guestName;
+  return { ...base, guest_name };
+}
+
+async function upsertSessions(
+  db: ReturnType<typeof getSupabase>,
+  sessions: StoredSession[],
+) {
+  if (!sessions.length) return;
+
+  if (guestPhoneColumnOk !== false) {
+    const { error } = await db.from("dining_sessions").upsert(sessions.map((s) => sessionToRow(s, true)));
+    if (!error) {
+      guestPhoneColumnOk = true;
+      return;
+    }
+    if (!isMissingGuestPhoneColumn(error)) {
+      throwIfError(error, "Could not save sessions");
+    }
+    guestPhoneColumnOk = false;
+  }
+
+  const { error } = await db
+    .from("dining_sessions")
+    .upsert(sessions.map((s) => sessionToRow(s, false)));
+  throwIfError(error, "Could not save sessions");
 }
 
 function orderFromRow(row: Record<string, unknown>): Order {
@@ -242,8 +305,7 @@ async function save(prev: FloorState, next: FloorState) {
   const db = getSupabase();
 
   if (next.sessions.length) {
-    const { error } = await db.from("dining_sessions").upsert(next.sessions.map(sessionToRow));
-    throwIfError(error, "Could not save sessions");
+    await upsertSessions(db, next.sessions);
   }
   const dropSessions = missing(
     prev.sessions.map((item) => item.id),

@@ -36,6 +36,16 @@ export function isValidGuestName(raw: string) {
   return name.length >= 2 && /^[\p{L}\p{M}\s.'-]+$/u.test(name);
 }
 
+/** Digits only — keep at most 10. */
+export function sanitizeGuestPhone(raw: string) {
+  return raw.replace(/\D/g, "").slice(0, 10);
+}
+
+export function isValidGuestPhone(raw: string) {
+  const phone = sanitizeGuestPhone(raw);
+  return phone.length === 10 && /^[6-9]\d{9}$/.test(phone);
+}
+
 export function redactSession(session: DiningSession): DiningSession {
   const copy = { ...session, token: "" };
   delete (copy as { revokedToken?: string }).revokedToken;

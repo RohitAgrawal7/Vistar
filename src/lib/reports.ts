@@ -1,5 +1,6 @@
 import { appConfig } from "@/lib/config";
 import { formatCurrency, formatDateTime } from "@/lib/format";
+import { formatGuestPhone } from "@/lib/session";
 import type { AuditEvent, DiningSession, Order } from "@/lib/types";
 
 export type ReportKind =
@@ -137,8 +138,13 @@ export function summarizeOrders(orders: Order[]) {
   };
 }
 
-function guestName(sessions: DiningSession[], sessionId: string) {
-  return sessions.find((session) => session.id === sessionId)?.guestName ?? "—";
+function guestLabel(sessions: DiningSession[], sessionId: string) {
+  const session = sessions.find((item) => item.id === sessionId);
+  if (!session) return "—";
+  if (session.guestPhone) {
+    return `${session.guestName} · ${formatGuestPhone(session.guestPhone)}`;
+  }
+  return session.guestName;
 }
 
 export function buildOrdersReportHtml(input: {
@@ -156,7 +162,7 @@ export function buildOrdersReportHtml(input: {
       return `<tr>
         <td>${escapeHtml(formatDateTime(order.createdAt))}</td>
         <td>${escapeHtml(order.tableId)}</td>
-        <td>${escapeHtml(guestName(input.sessions, order.sessionId))}</td>
+        <td>${escapeHtml(guestLabel(input.sessions, order.sessionId))}</td>
         <td>#${order.sequence}</td>
         <td>${escapeHtml(order.status)}</td>
         <td>${items || "—"}</td>

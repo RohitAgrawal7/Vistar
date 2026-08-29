@@ -5,6 +5,7 @@ import { BrandLogo } from "@/components/brand/brand-logo";
 import { RestaurantBackdrop } from "@/components/brand/restaurant-backdrop";
 import { appConfig } from "@/lib/config";
 import { cn } from "@/lib/cn";
+import { safeSessionGet, safeSessionSet } from "@/lib/safe-storage";
 
 const ENTRY_STORAGE_PREFIX = "vistar-entry-seen:";
 
@@ -33,13 +34,13 @@ export function GuestEntryShell({
   useEffect(() => {
     if (skipIntro) return;
     const storageKey = `${ENTRY_STORAGE_PREFIX}${entryKey}`;
-    const seen = sessionStorage.getItem(storageKey) === "1";
+    const seen = safeSessionGet(storageKey) === "1";
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const delay = seen || reduceMotion ? 0 : appConfig.splashMs;
 
     const splash = window.setTimeout(() => {
       setPhase("welcome");
-      sessionStorage.setItem(storageKey, "1");
+      safeSessionSet(storageKey, "1");
     }, delay);
     const form = window.setTimeout(
       () => setShowForm(true),

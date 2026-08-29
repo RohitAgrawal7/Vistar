@@ -7,6 +7,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency, formatDateTime } from "@/lib/format";
+import { formatGuestPhone } from "@/lib/session";
 import { cn } from "@/lib/cn";
 import {
   REPORT_KIND_LABEL,
@@ -419,6 +420,7 @@ function OrdersTable({
             <th className="px-4 py-3 font-medium">When</th>
             <th className="px-4 py-3 font-medium">Table</th>
             <th className="px-4 py-3 font-medium">Guest</th>
+            <th className="px-4 py-3 font-medium">Mobile</th>
             <th className="px-4 py-3 font-medium">#</th>
             <th className="px-4 py-3 font-medium">Status</th>
             <th className="px-4 py-3 font-medium">Items</th>
@@ -427,8 +429,9 @@ function OrdersTable({
         </thead>
         <tbody>
           {orders.map((order) => {
-            const guest =
-              sessions.find((session) => session.id === order.sessionId)?.guestName ?? "—";
+            const session = sessions.find((item) => item.id === order.sessionId);
+            const guest = session?.guestName ?? "—";
+            const phone = session?.guestPhone ? formatGuestPhone(session.guestPhone) : "—";
             return (
               <tr key={order.id} className="border-b border-espresso/5 last:border-0 align-top">
                 <td className="whitespace-nowrap px-4 py-3 text-espresso/70">
@@ -436,6 +439,7 @@ function OrdersTable({
                 </td>
                 <td className="px-4 py-3 font-medium">{order.tableId}</td>
                 <td className="px-4 py-3">{guest}</td>
+                <td className="whitespace-nowrap px-4 py-3 tabular-nums text-espresso/80">{phone}</td>
                 <td className="px-4 py-3">#{order.sequence}</td>
                 <td className="px-4 py-3 capitalize">{order.status.replaceAll("_", " ")}</td>
                 <td className="px-4 py-3 text-espresso/80">

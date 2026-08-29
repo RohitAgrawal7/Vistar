@@ -17,14 +17,17 @@ export function useHydrated() {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    void Promise.all([
-      useOrderStore.persist.rehydrate(),
-      useCartStore.persist.rehydrate(),
-      useGuestStore.persist.rehydrate(),
-      useStaffStore.persist.rehydrate(),
-      useSuperAdminStore.persist.rehydrate(),
-      useOutboxStore.persist.rehydrate(),
-    ]).then(() => {
+    async function hydrate() {
+      const safe = (promise: void | Promise<void>) =>
+        Promise.resolve(promise).catch(() => undefined);
+      await Promise.all([
+        safe(useOrderStore.persist.rehydrate()),
+        safe(useCartStore.persist.rehydrate()),
+        safe(useGuestStore.persist.rehydrate()),
+        safe(useStaffStore.persist.rehydrate()),
+        safe(useSuperAdminStore.persist.rehydrate()),
+        safe(useOutboxStore.persist.rehydrate()),
+      ]);
       const state = useOrderStore.getState();
       if (isRemoteApiEnabled()) {
         useOrderStore.setState({
@@ -43,7 +46,8 @@ export function useHydrated() {
         });
       }
       setHydrated(true);
-    });
+    }
+    void hydrate();
 
     const onStorage = (event: StorageEvent) => {
       // Remote café floor is API-owned — never let another tab wipe admin/guest UI.

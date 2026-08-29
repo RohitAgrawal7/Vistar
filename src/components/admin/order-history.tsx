@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { formatCurrency, formatDateTime } from "@/lib/format";
-import { computeSessionTotals, ordersForSession, sessionHasUnpaidOrders, sessionOutcomeLabel } from "@/lib/session";
+import { computeSessionTotals, formatGuestPhone, ordersForSession, sessionHasUnpaidOrders, sessionOutcomeLabel } from "@/lib/session";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { OrderLineList } from "@/components/order-line-list";
@@ -71,6 +71,7 @@ export function OrderHistory({
                 <th className="px-4 py-3 font-medium">Closed</th>
                 <th className="px-4 py-3 font-medium">Table</th>
                 <th className="px-4 py-3 font-medium">Guest</th>
+                <th className="px-4 py-3 font-medium">Mobile</th>
                 <th className="px-4 py-3 font-medium">Outcome</th>
                 <th className="px-4 py-3 font-medium">Tickets</th>
                 <th className="px-4 py-3 font-medium">Total</th>
@@ -88,6 +89,9 @@ export function OrderHistory({
                     </td>
                     <td className="px-4 py-3 font-medium">{session.tableId}</td>
                     <td className="px-4 py-3">{session.guestName}</td>
+                    <td className="whitespace-nowrap px-4 py-3 tabular-nums text-espresso/80">
+                      {session.guestPhone ? formatGuestPhone(session.guestPhone) : "—"}
+                    </td>
                     <td className="px-4 py-3">
                       <span className="font-medium text-espresso">{sessionOutcomeLabel(session)}</span>
                       {unpaid ? (

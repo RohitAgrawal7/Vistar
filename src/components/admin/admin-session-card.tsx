@@ -12,7 +12,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/cn";
 import { appConfig } from "@/lib/config";
 import { formatCurrency } from "@/lib/format";
-import { computeSessionTotals, idleMinutes, isSessionStale, ordersForSession, staffOrdersForSession } from "@/lib/session";
+import { computeSessionTotals, formatGuestPhone, idleMinutes, isSessionStale, ordersForSession, staffOrdersForSession } from "@/lib/session";
 import { SESSION_COPY, STATUS_COPY } from "@/lib/status";
 import type { DiningSession, Order, OrderStatus, ResumeTicket } from "@/lib/types";
 
@@ -62,6 +62,11 @@ export function AdminSessionCard({
             Table {session.tableId}
           </p>
           <h3 className="mt-1 font-display text-xl text-espresso sm:text-2xl">{session.guestName}</h3>
+          {session.guestPhone ? (
+            <p className="mt-0.5 text-sm font-medium tabular-nums text-espresso/75">
+              {formatGuestPhone(session.guestPhone)}
+            </p>
+          ) : null}
           <p className="text-xs text-espresso/55">
             {liveTickets.length} order{liveTickets.length === 1 ? "" : "s"} · live session
             {idle > 0 ? ` · idle ${idle}m` : ""}

@@ -18,9 +18,11 @@ import {
   canAddOrders,
   isActiveSession,
   isValidGuestName,
+  isValidGuestPhone,
   ordersForSession,
   redactSession,
   sanitizeGuestName,
+  sanitizeGuestPhone,
 } from "@/lib/session";
 import {
   isValidAbandonNote,
@@ -546,11 +548,16 @@ export const mockOrderService: OrderService = {
     if (!isValidGuestName(guestName)) {
       throw new ApiError("Enter a name of at least two letters", 400);
     }
+    const guestPhone = sanitizeGuestPhone(input.guestPhone ?? "");
+    if (!isValidGuestPhone(guestPhone)) {
+      throw new ApiError("Enter exactly 10 digits for mobile number", 400);
+    }
     const now = new Date().toISOString();
     const session: DiningSession = {
       id: createId("ses"),
       tableId: input.tableId,
       guestName,
+      guestPhone,
       token: createId("tok"),
       status: "open",
       createdAt: now,

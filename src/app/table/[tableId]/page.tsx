@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { CustomerOrderExperience } from "@/components/customer/customer-order-experience";
+import { TableEntryGuard } from "@/components/customer/table-entry-guard";
 import { resolveFloorTableId } from "@/lib/tables";
 import type { Metadata } from "next";
 
@@ -27,7 +27,7 @@ export default async function TableMenuPage({
   if (!tableId) notFound();
   if (tableId !== raw) redirect(`/table/${tableId}`);
 
-  return <CustomerOrderExperience tableId={tableId} />;
+  return <TableEntryGuard tableId={tableId} />;
 }
 
 export function generateStaticParams() {

@@ -7,6 +7,7 @@ create table if not exists public.dining_sessions (
   id text primary key,
   table_id text not null,
   guest_name text not null,
+  guest_phone text,
   token text not null default '',
   revoked_token text,
   status text not null check (status in ('open', 'billing', 'paid', 'closed')),
@@ -24,6 +25,9 @@ create table if not exists public.dining_sessions (
   review_note text,
   reviewed_at timestamptz
 );
+
+alter table public.dining_sessions
+  add column if not exists guest_phone text;
 
 create unique index if not exists dining_sessions_one_active_per_table
   on public.dining_sessions (table_id)

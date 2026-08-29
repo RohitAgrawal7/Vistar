@@ -17,7 +17,7 @@ import { useCart } from "@/hooks/use-cart";
 import { useMenu } from "@/hooks/use-menu";
 import { useTableSession } from "@/hooks/use-session";
 import { formatCurrency } from "@/lib/format";
-import { canAddOrders } from "@/lib/session";
+import { canAddOrders, formatGuestPhone } from "@/lib/session";
 import { readPaidVisit, savePaidVisit } from "@/lib/visit-complete";
 import { useThanksWhenStaffConfirms } from "@/hooks/use-thanks-when-staff-confirms";
 
@@ -88,8 +88,8 @@ export function CustomerOrderExperience({ tableId }: { tableId: string }) {
         tableId={tableId}
         error={table.error}
         mutating={table.mutating}
-        onStart={async (name) => {
-          await table.startSession(name);
+        onStart={async (input) => {
+          await table.startSession(input);
         }}
       />
     );
@@ -131,14 +131,16 @@ export function CustomerOrderExperience({ tableId }: { tableId: string }) {
         <div className="flex min-w-0 flex-col gap-3 sm:gap-5">
           <div>
             <p className="text-[10px] uppercase tracking-[0.2em] text-espresso/50 sm:text-xs sm:tracking-[0.24em]">
-              {session.guestName} · Table {tableId}
+              {session.guestName}
+              {session.guestPhone ? ` · ${formatGuestPhone(session.guestPhone)}` : ""} · Table{" "}
+              {tableId}
             </p>
             <h1 className="mt-0.5 text-balance font-display text-xl italic leading-tight text-espresso sm:mt-1 sm:text-5xl">
               {orderingOpen ? "Pick dishes, then submit" : "Session locked"}
             </h1>
             <p className="mt-1 max-w-xl text-sm leading-5 text-espresso/70 sm:mt-2 sm:leading-6">
               {orderingOpen
-                ? "Combo is sandwich + fries + cold coffee. Scroll for more, then tap Add."
+                ? "Pick sandwiches, fries, or drinks — combos are on the last tab. Tap Add when ready."
                 : "The final bill is open. Scan UPI or pay at the counter. Staff tap Done, then this phone opens thank you."}
             </p>
           </div>

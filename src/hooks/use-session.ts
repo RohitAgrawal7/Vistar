@@ -102,7 +102,12 @@ export function useTableSession(tableId: string) {
         .then((result) => {
           if (!cancelled) setOccupied(result.occupied);
         })
-        .catch(() => {
+        .catch((err) => {
+          if (cancelled) return;
+          if (err instanceof ApiError && err.status === 404) {
+            setError(`Table ${tableId} is not set up. Ask staff to add it in Table QR.`);
+            return;
+          }
           /* occupancy is best-effort; writes stay token-gated */
         });
     };
@@ -166,7 +171,7 @@ export function useTableSession(tableId: string) {
   }, [claim?.sessionId, claim?.token, tableId]);
 
   const startSession = useCallback(
-    async (guestName: string) => {
+    async (input: { guestName: string; guestPhone: string }) => {
       if (startInFlight.current) return startInFlight.current;
       setMutating(true);
       setError(null);
@@ -206,7 +211,11 @@ export function useTableSession(tableId: string) {
             return null;
           }
 
-          const next = await orderService.startSession({ tableId, guestName });
+          const next = await orderService.startSession({
+            tableId,
+            guestName: input.guestName,
+            guestPhone: input.guestPhone,
+          });
           upsertSession(next);
           saveClaim(tableId, { sessionId: next.id, token: next.token });
           clearPaidVisit(tableId);

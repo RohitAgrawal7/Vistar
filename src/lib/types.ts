@@ -62,6 +62,8 @@ export interface DiningSession {
   id: string;
   tableId: string;
   guestName: string;
+  /** 10-digit Indian mobile (digits only). Optional on older sessions. */
+  guestPhone?: string;
   token: string;
   status: SessionStatus;
   createdAt: string;
@@ -116,6 +118,7 @@ export interface Order {
 export interface CreateSessionInput {
   tableId: string;
   guestName: string;
+  guestPhone: string;
 }
 
 export interface CreateOrderInput {

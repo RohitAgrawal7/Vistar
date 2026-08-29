@@ -54,12 +54,14 @@ import {
   isActiveSession,
   isValidAbandonNote,
   isValidGuestName,
+  isValidGuestPhone,
   isValidStaffName,
   orderBodiesMatch,
   ordersForSession,
   redactSession,
   sanitizeAbandonNote,
   sanitizeGuestName,
+  sanitizeGuestPhone,
 } from "@/server/rules";
 import { getSupabase, supabaseEnvStatus } from "@/server/supabase";
 import { scheduleRetentionCleanup, runRetentionCleanup } from "@/server/retention";
@@ -536,6 +538,10 @@ export const kitchen = {
     if (!isValidGuestName(guestName)) {
       throw new ApiError("Enter a name of at least two letters", 400);
     }
+    const guestPhone = sanitizeGuestPhone(input.guestPhone ?? "");
+    if (!isValidGuestPhone(guestPhone)) {
+      throw new ApiError("Enter exactly 10 digits for mobile number", 400);
+    }
     return withFloor((floor) => {
       if (activeSessionForTable(floor.sessions, input.tableId)) {
         throw new ApiError("This table is occupied. Please wait.", 409);
@@ -545,6 +551,7 @@ export const kitchen = {
         id: createId("ses"),
         tableId: input.tableId,
         guestName,
+        guestPhone,
         token: createId("tok"),
         status: "open",
         createdAt: now,
